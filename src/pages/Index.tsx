@@ -35,12 +35,19 @@ const Index = () => {
     toast.success("Entity deleted");
   };
 
-  const handleCreateRelationship = (sourceId: string, targetId: string) => {
+  const handleCreateRelationship = (
+    sourceEntityId: string,
+    targetEntityId: string,
+    sourceAttributeId?: string,
+    targetAttributeId?: string
+  ) => {
     const newRelationship: RelationshipData = {
       id: `rel-${Date.now()}`,
-      sourceEntityId: sourceId,
-      targetEntityId: targetId,
+      sourceEntityId,
+      targetEntityId,
       type: relationshipType,
+      sourceAttributeId,
+      targetAttributeId,
     };
     setRelationships((prev) => [...prev, newRelationship]);
     toast.success(`${relationshipType} relationship created`);

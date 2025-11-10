@@ -9,6 +9,8 @@ export interface RelationshipData {
   sourceEntityId: string;
   targetEntityId: string;
   type: RelationshipType;
+  sourceAttributeId?: string;
+  targetAttributeId?: string;
 }
 
 interface RelationshipProps {
@@ -18,6 +20,7 @@ interface RelationshipProps {
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  scale?: number;
 }
 
 export const Relationship = ({
@@ -27,12 +30,39 @@ export const Relationship = ({
   isSelected,
   onSelect,
   onDelete,
+  scale = 1,
 }: RelationshipProps) => {
-  // Calculate center points of entities
-  const sourceX = sourceEntity.x + 125; // Center of 250px wide entity
-  const sourceY = sourceEntity.y + 50;
-  const targetX = targetEntity.x + 125;
-  const targetY = targetEntity.y + 50;
+  // Calculate anchor points. If attribute anchors exist, connect to them; else connect entity centers.
+  const sourceAnchorEl = relationship.sourceAttributeId
+    ? document.getElementById(`attr-anchor-${relationship.sourceEntityId}-${relationship.sourceAttributeId}`)
+    : null;
+  const targetAnchorEl = relationship.targetAttributeId
+    ? document.getElementById(`attr-anchor-${relationship.targetEntityId}-${relationship.targetAttributeId}`)
+    : null;
+
+  let sourceX = sourceEntity.x + 125;
+  let sourceY = sourceEntity.y + 50;
+  let targetX = targetEntity.x + 125;
+  let targetY = targetEntity.y + 50;
+
+  if (sourceAnchorEl) {
+    const rect = sourceAnchorEl.getBoundingClientRect();
+    const inner = sourceAnchorEl.closest('[data-canvas-inner="true"]') as HTMLElement | null;
+    if (inner) {
+      const innerRect = inner.getBoundingClientRect();
+      sourceX = (rect.left - innerRect.left) / scale;
+      sourceY = (rect.top - innerRect.top) / scale;
+    }
+  }
+  if (targetAnchorEl) {
+    const rect = targetAnchorEl.getBoundingClientRect();
+    const inner = targetAnchorEl.closest('[data-canvas-inner="true"]') as HTMLElement | null;
+    if (inner) {
+      const innerRect = inner.getBoundingClientRect();
+      targetX = (rect.left - innerRect.left) / scale;
+      targetY = (rect.top - innerRect.top) / scale;
+    }
+  }
 
   // Calculate midpoint for the delete button
   const midX = (sourceX + targetX) / 2;
@@ -65,6 +95,7 @@ export const Relationship = ({
             y2={sourceNotationY - Math.cos(angle) * 8}
             stroke="hsl(var(--entity-header))"
             strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
           />
           {/* One side at target */}
           <line
@@ -74,6 +105,7 @@ export const Relationship = ({
             y2={targetNotationY - Math.cos(angle) * 8}
             stroke="hsl(var(--entity-header))"
             strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
           />
         </>
       );
@@ -88,6 +120,7 @@ export const Relationship = ({
             y2={sourceNotationY - Math.cos(angle) * 8}
             stroke="hsl(var(--entity-header))"
             strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
           />
           {/* Many side at target (crow's foot) */}
           <g>
@@ -98,6 +131,7 @@ export const Relationship = ({
               y2={targetNotationY - Math.sin(angle) * 15 + Math.cos(angle) * 8}
               stroke="hsl(var(--entity-header))"
               strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
             />
             <line
               x1={targetNotationX}
@@ -106,6 +140,7 @@ export const Relationship = ({
               y2={targetNotationY - Math.sin(angle) * 15 - Math.cos(angle) * 8}
               stroke="hsl(var(--entity-header))"
               strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
             />
             <line
               x1={targetNotationX}
@@ -114,6 +149,7 @@ export const Relationship = ({
               y2={targetNotationY - Math.sin(angle) * 15}
               stroke="hsl(var(--entity-header))"
               strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
             />
           </g>
         </>
@@ -130,6 +166,7 @@ export const Relationship = ({
               y2={sourceNotationY + Math.sin(angle) * 15 + Math.cos(angle) * 8}
               stroke="hsl(var(--entity-header))"
               strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
             />
             <line
               x1={sourceNotationX}
@@ -138,6 +175,7 @@ export const Relationship = ({
               y2={sourceNotationY + Math.sin(angle) * 15 - Math.cos(angle) * 8}
               stroke="hsl(var(--entity-header))"
               strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
             />
             <line
               x1={sourceNotationX}
@@ -146,6 +184,7 @@ export const Relationship = ({
               y2={sourceNotationY + Math.sin(angle) * 15}
               stroke="hsl(var(--entity-header))"
               strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
             />
           </g>
           {/* Many side at target (crow's foot) */}
@@ -157,6 +196,7 @@ export const Relationship = ({
               y2={targetNotationY - Math.sin(angle) * 15 + Math.cos(angle) * 8}
               stroke="hsl(var(--entity-header))"
               strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
             />
             <line
               x1={targetNotationX}
@@ -165,6 +205,7 @@ export const Relationship = ({
               y2={targetNotationY - Math.sin(angle) * 15 - Math.cos(angle) * 8}
               stroke="hsl(var(--entity-header))"
               strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
             />
             <line
               x1={targetNotationX}
@@ -173,6 +214,7 @@ export const Relationship = ({
               y2={targetNotationY - Math.sin(angle) * 15}
               stroke="hsl(var(--entity-header))"
               strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
             />
           </g>
         </>
@@ -188,7 +230,12 @@ export const Relationship = ({
         strokeWidth={isSelected ? "3" : "2"}
         fill="none"
         className="cursor-pointer"
-        onClick={onSelect}
+        pointerEvents="stroke"
+        vectorEffect="non-scaling-stroke"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
       />
       {renderNotation()}
       

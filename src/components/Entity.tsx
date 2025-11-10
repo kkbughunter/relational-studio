@@ -8,6 +8,8 @@ export interface Attribute {
   name: string;
   type: string;
   isPrimaryKey?: boolean;
+  isUnique?: boolean;
+  isNullable?: boolean;
 }
 
 export interface EntityData {
@@ -24,9 +26,11 @@ interface EntityProps {
   onSelect: () => void;
   onUpdate: (entity: EntityData) => void;
   onDelete: () => void;
+  getWorldFromClient?: (x: number, y: number) => { x: number; y: number };
+  onAttributeClick?: (attributeId: string) => void;
 }
 
-export const Entity = ({ entity, isSelected, onSelect, onUpdate, onDelete }: EntityProps) => {
+export const Entity = ({ entity, isSelected, onSelect, onUpdate, onDelete, getWorldFromClient, onAttributeClick }: EntityProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isEditingName, setIsEditingName] = useState(false);
@@ -41,9 +45,10 @@ export const Entity = ({ entity, isSelected, onSelect, onUpdate, onDelete }: Ent
     if ((e.target as HTMLElement).closest('input, button')) return;
     
     setIsDragging(true);
+    const world = getWorldFromClient ? getWorldFromClient(e.clientX, e.clientY) : { x: e.clientX, y: e.clientY };
     setDragOffset({
-      x: e.clientX - entity.x,
-      y: e.clientY - entity.y,
+      x: world.x - entity.x,
+      y: world.y - entity.y,
     });
     onSelect();
   };
@@ -51,10 +56,11 @@ export const Entity = ({ entity, isSelected, onSelect, onUpdate, onDelete }: Ent
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
+        const world = getWorldFromClient ? getWorldFromClient(e.clientX, e.clientY) : { x: e.clientX, y: e.clientY };
         onUpdate({
           ...entity,
-          x: e.clientX - dragOffset.x,
-          y: e.clientY - dragOffset.y,
+          x: world.x - dragOffset.x,
+          y: world.y - dragOffset.y,
         });
       }
     };
@@ -79,6 +85,9 @@ export const Entity = ({ entity, isSelected, onSelect, onUpdate, onDelete }: Ent
       id: `attr-${Date.now()}`,
       name: "attribute",
       type: "VARCHAR(255)",
+      isPrimaryKey: false,
+      isUnique: false,
+      isNullable: true,
     };
     onUpdate({
       ...entity,
@@ -114,6 +123,7 @@ export const Entity = ({ entity, isSelected, onSelect, onUpdate, onDelete }: Ent
   return (
     <div
       ref={entityRef}
+      data-entity-root="true"
       className={`absolute bg-entity-background border-2 rounded-lg shadow-lg cursor-move select-none min-w-[250px] ${
         isSelected ? "border-primary" : "border-entity-border"
       }`}
@@ -171,9 +181,16 @@ export const Entity = ({ entity, isSelected, onSelect, onUpdate, onDelete }: Ent
         {entity.attributes.map((attr) => (
           <div
             key={attr.id}
-            className="flex items-center gap-2 text-sm py-1.5 px-2 rounded hover:bg-muted group"
-            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-2 text-sm py-1.5 px-2 rounded hover:bg-muted group relative"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onAttributeClick) onAttributeClick(attr.id);
+            }}
           >
+            <span
+              id={`attr-anchor-${entity.id}-${attr.id}`}
+              className="absolute -left-2 top-1/2 -translate-y-1/2 w-0 h-0"
+            />
             <Input
               value={attr.name}
               onChange={(e) => updateAttribute(attr.id, { name: e.target.value })}
@@ -186,6 +203,42 @@ export const Entity = ({ entity, isSelected, onSelect, onUpdate, onDelete }: Ent
               className="h-7 w-32 text-xs"
               placeholder="type"
             />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                updateAttribute(attr.id, { isPrimaryKey: !attr.isPrimaryKey });
+              }}
+              className={`h-6 px-2 text-[10px] ${attr.isPrimaryKey ? "bg-primary text-primary-foreground hover:bg-primary" : ""}`}
+              title="Primary Key"
+            >
+              PK
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                updateAttribute(attr.id, { isUnique: !attr.isUnique });
+              }}
+              className={`h-6 px-2 text-[10px] ${attr.isUnique ? "bg-primary text-primary-foreground hover:bg-primary" : ""}`}
+              title="Unique"
+            >
+              UQ
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                updateAttribute(attr.id, { isNullable: !(attr.isNullable ?? true) });
+              }}
+              className={`h-6 px-2 text-[10px] ${attr.isNullable === false ? "" : "bg-primary text-primary-foreground hover:bg-primary"}`}
+              title="Nullable"
+            >
+              NULL
+            </Button>
             <Button
               variant="ghost"
               size="sm"
