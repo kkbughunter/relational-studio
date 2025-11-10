@@ -2,12 +2,16 @@ import { useState } from "react";
 import { Toolbar } from "@/components/Toolbar";
 import { Canvas } from "@/components/Canvas";
 import { EntityData } from "@/components/Entity";
+import { RelationshipData, RelationshipType } from "@/components/Relationship";
 import { toast } from "sonner";
 
 const Index = () => {
   const [entities, setEntities] = useState<EntityData[]>([]);
+  const [relationships, setRelationships] = useState<RelationshipData[]>([]);
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
-  const [selectedTool, setSelectedTool] = useState<"select" | "entity">("select");
+  const [selectedRelationshipId, setSelectedRelationshipId] = useState<string | null>(null);
+  const [selectedTool, setSelectedTool] = useState<"select" | "entity" | "relationship">("select");
+  const [relationshipType, setRelationshipType] = useState<RelationshipType>("one-to-many");
 
   const handleUpdateEntity = (updatedEntity: EntityData) => {
     setEntities((prev) => {
@@ -21,26 +25,53 @@ const Index = () => {
 
   const handleDeleteEntity = (id: string) => {
     setEntities((prev) => prev.filter((e) => e.id !== id));
+    // Also delete any relationships connected to this entity
+    setRelationships((prev) =>
+      prev.filter((r) => r.sourceEntityId !== id && r.targetEntityId !== id)
+    );
     if (selectedEntityId === id) {
       setSelectedEntityId(null);
     }
     toast.success("Entity deleted");
   };
 
+  const handleCreateRelationship = (sourceId: string, targetId: string) => {
+    const newRelationship: RelationshipData = {
+      id: `rel-${Date.now()}`,
+      sourceEntityId: sourceId,
+      targetEntityId: targetId,
+      type: relationshipType,
+    };
+    setRelationships((prev) => [...prev, newRelationship]);
+    toast.success(`${relationshipType} relationship created`);
+  };
+
+  const handleDeleteRelationship = (id: string) => {
+    setRelationships((prev) => prev.filter((r) => r.id !== id));
+    if (selectedRelationshipId === id) {
+      setSelectedRelationshipId(null);
+    }
+    toast.success("Relationship deleted");
+  };
+
   const handleClear = () => {
-    if (entities.length === 0) {
+    if (entities.length === 0 && relationships.length === 0) {
       toast.info("Canvas is already empty");
       return;
     }
     setEntities([]);
+    setRelationships([]);
     setSelectedEntityId(null);
+    setSelectedRelationshipId(null);
     toast.success("Canvas cleared");
   };
 
-  const handleToolChange = (tool: "select" | "entity") => {
+  const handleToolChange = (tool: "select" | "entity" | "relationship") => {
     setSelectedTool(tool);
     if (tool === "entity") {
       toast.info("Click on the canvas to add an entity");
+    } else if (tool === "relationship") {
+      toast.info("Click on two entities to create a relationship");
     }
   };
 
@@ -53,17 +84,25 @@ const Index = () => {
 
       <Toolbar
         selectedTool={selectedTool}
+        relationshipType={relationshipType}
         onToolChange={handleToolChange}
+        onRelationshipTypeChange={setRelationshipType}
         onClear={handleClear}
       />
 
       <Canvas
         entities={entities}
+        relationships={relationships}
         selectedEntityId={selectedEntityId}
+        selectedRelationshipId={selectedRelationshipId}
         onSelectEntity={setSelectedEntityId}
+        onSelectRelationship={setSelectedRelationshipId}
         onUpdateEntity={handleUpdateEntity}
         onDeleteEntity={handleDeleteEntity}
+        onDeleteRelationship={handleDeleteRelationship}
         selectedTool={selectedTool}
+        relationshipType={relationshipType}
+        onCreateRelationship={handleCreateRelationship}
       />
     </div>
   );
