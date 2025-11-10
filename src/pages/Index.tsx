@@ -75,6 +75,64 @@ const Index = () => {
     }
   };
 
+  const handleExport = () => {
+    if (entities.length === 0 && relationships.length === 0) {
+      toast.error("Nothing to export. Add some entities first.");
+      return;
+    }
+
+    const diagramData = {
+      version: "1.0",
+      entities,
+      relationships,
+      exportedAt: new Date().toISOString(),
+    };
+
+    const dataStr = JSON.stringify(diagramData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `er-diagram-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success("Diagram exported successfully!");
+  };
+
+  const handleImport = async (file: File) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      // Validate the structure
+      if (!data.entities || !Array.isArray(data.entities)) {
+        toast.error("Invalid diagram file: missing entities");
+        return;
+      }
+
+      if (!data.relationships || !Array.isArray(data.relationships)) {
+        toast.error("Invalid diagram file: missing relationships");
+        return;
+      }
+
+      // Load the data
+      setEntities(data.entities);
+      setRelationships(data.relationships);
+      setSelectedEntityId(null);
+      setSelectedRelationshipId(null);
+
+      toast.success(
+        `Diagram imported! Loaded ${data.entities.length} entities and ${data.relationships.length} relationships.`
+      );
+    } catch (error) {
+      console.error("Import error:", error);
+      toast.error("Failed to import diagram. Please check the file format.");
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col">
       <header className="bg-card border-b border-border px-6 py-4">
@@ -88,6 +146,8 @@ const Index = () => {
         onToolChange={handleToolChange}
         onRelationshipTypeChange={setRelationshipType}
         onClear={handleClear}
+        onExport={handleExport}
+        onImport={handleImport}
       />
 
       <Canvas
