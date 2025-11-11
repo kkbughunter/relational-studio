@@ -13,6 +13,7 @@ interface CanvasProps {
   onUpdateEntity: (entity: EntityData) => void;
   onDeleteEntity: (id: string) => void;
   onDeleteRelationship: (id: string) => void;
+  onUpdateRelationship?: (relationship: RelationshipData) => void;
   selectedTool: "select" | "entity" | "relationship";
   relationshipType: RelationshipType;
   onCreateRelationship: (
@@ -33,6 +34,7 @@ export const Canvas = ({
   onUpdateEntity,
   onDeleteEntity,
   onDeleteRelationship,
+  onUpdateRelationship,
   selectedTool,
   relationshipType,
   onCreateRelationship,
@@ -283,6 +285,7 @@ export const Canvas = ({
                 isSelected={relationship.id === selectedRelationshipId}
                 onSelect={() => onSelectRelationship(relationship.id)}
                 onDelete={() => onDeleteRelationship(relationship.id)}
+                onUpdate={onUpdateRelationship}
                 scale={scale}
               />
             </g>
