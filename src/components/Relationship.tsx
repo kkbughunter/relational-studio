@@ -32,6 +32,7 @@ export const Relationship = ({
   onDelete,
   scale = 1,
 }: RelationshipProps) => {
+  const strokeColor = isSelected ? "hsl(var(--primary))" : "hsl(var(--entity-header))";
   // Calculate anchor points. If attribute anchors exist, connect to them; else connect entity centers.
   const sourceAnchorEl = relationship.sourceAttributeId
     ? document.getElementById(`attr-anchor-${relationship.sourceEntityId}-${relationship.sourceAttributeId}`)
@@ -93,7 +94,7 @@ export const Relationship = ({
             y1={sourceNotationY + Math.cos(angle) * 8}
             x2={sourceNotationX + Math.sin(angle) * 8}
             y2={sourceNotationY - Math.cos(angle) * 8}
-            stroke="hsl(var(--entity-header))"
+            stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
@@ -103,7 +104,7 @@ export const Relationship = ({
             y1={targetNotationY + Math.cos(angle) * 8}
             x2={targetNotationX + Math.sin(angle) * 8}
             y2={targetNotationY - Math.cos(angle) * 8}
-            stroke="hsl(var(--entity-header))"
+            stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
@@ -118,7 +119,7 @@ export const Relationship = ({
             y1={sourceNotationY + Math.cos(angle) * 8}
             x2={sourceNotationX + Math.sin(angle) * 8}
             y2={sourceNotationY - Math.cos(angle) * 8}
-            stroke="hsl(var(--entity-header))"
+            stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
@@ -129,7 +130,7 @@ export const Relationship = ({
               y1={targetNotationY}
               x2={targetNotationX - Math.cos(angle) * 15 - Math.sin(angle) * 8}
               y2={targetNotationY - Math.sin(angle) * 15 + Math.cos(angle) * 8}
-              stroke="hsl(var(--entity-header))"
+              stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -138,7 +139,7 @@ export const Relationship = ({
               y1={targetNotationY}
               x2={targetNotationX - Math.cos(angle) * 15 + Math.sin(angle) * 8}
               y2={targetNotationY - Math.sin(angle) * 15 - Math.cos(angle) * 8}
-              stroke="hsl(var(--entity-header))"
+              stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -147,7 +148,7 @@ export const Relationship = ({
               y1={targetNotationY}
               x2={targetNotationX - Math.cos(angle) * 15}
               y2={targetNotationY - Math.sin(angle) * 15}
-              stroke="hsl(var(--entity-header))"
+              stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -164,7 +165,7 @@ export const Relationship = ({
               y1={sourceNotationY}
               x2={sourceNotationX + Math.cos(angle) * 15 - Math.sin(angle) * 8}
               y2={sourceNotationY + Math.sin(angle) * 15 + Math.cos(angle) * 8}
-              stroke="hsl(var(--entity-header))"
+              stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -173,7 +174,7 @@ export const Relationship = ({
               y1={sourceNotationY}
               x2={sourceNotationX + Math.cos(angle) * 15 + Math.sin(angle) * 8}
               y2={sourceNotationY + Math.sin(angle) * 15 - Math.cos(angle) * 8}
-              stroke="hsl(var(--entity-header))"
+              stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -182,7 +183,7 @@ export const Relationship = ({
               y1={sourceNotationY}
               x2={sourceNotationX + Math.cos(angle) * 15}
               y2={sourceNotationY + Math.sin(angle) * 15}
-              stroke="hsl(var(--entity-header))"
+              stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -194,7 +195,7 @@ export const Relationship = ({
               y1={targetNotationY}
               x2={targetNotationX - Math.cos(angle) * 15 - Math.sin(angle) * 8}
               y2={targetNotationY - Math.sin(angle) * 15 + Math.cos(angle) * 8}
-              stroke="hsl(var(--entity-header))"
+              stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -203,7 +204,7 @@ export const Relationship = ({
               y1={targetNotationY}
               x2={targetNotationX - Math.cos(angle) * 15 + Math.sin(angle) * 8}
               y2={targetNotationY - Math.sin(angle) * 15 - Math.cos(angle) * 8}
-              stroke="hsl(var(--entity-header))"
+              stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -212,7 +213,7 @@ export const Relationship = ({
               y1={targetNotationY}
               x2={targetNotationX - Math.cos(angle) * 15}
               y2={targetNotationY - Math.sin(angle) * 15}
-              stroke="hsl(var(--entity-header))"
+              stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
@@ -224,18 +225,35 @@ export const Relationship = ({
 
   return (
     <>
+      <circle
+        cx={sourceX}
+        cy={sourceY}
+        r={isSelected ? 3 : 2}
+        fill={strokeColor}
+        vectorEffect="non-scaling-stroke"
+        pointerEvents="none"
+      />
       <path
         d={path}
-        stroke={isSelected ? "hsl(var(--primary))" : "hsl(var(--entity-header))"}
+        stroke={strokeColor}
         strokeWidth={isSelected ? "3" : "2"}
         fill="none"
         className="cursor-pointer"
         pointerEvents="stroke"
         vectorEffect="non-scaling-stroke"
+        markerEnd="url(#arrowhead)"
         onClick={(e) => {
           e.stopPropagation();
           onSelect();
         }}
+      />
+      <circle
+        cx={targetX}
+        cy={targetY}
+        r={isSelected ? 3 : 2}
+        fill={strokeColor}
+        vectorEffect="non-scaling-stroke"
+        pointerEvents="none"
       />
       {renderNotation()}
       

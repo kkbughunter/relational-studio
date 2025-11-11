@@ -48,6 +48,13 @@ export const Canvas = ({
   const [offset, setOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [scale, setScale] = useState<number>(1);
 
+  // Prevent panning the canvas into positive offsets (which would reveal empty space on top/left).
+  // Allow unlimited movement to the right/bottom (negative offsets).
+  const clampOffset = (x: number, y: number) => ({
+    x: Math.min(x, 0),
+    y: Math.min(y, 0),
+  });
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space") setIsSpaceDown(true);
@@ -141,11 +148,12 @@ export const Canvas = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target !== canvasRef.current) return;
-    if (e.button === 1 || (e.button === 0 && isSpaceDown)) {
-      setIsPanning(true);
-      setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
-    }
+    const isPanTrigger = e.button === 1 || e.button === 2 || (e.button === 0 && isSpaceDown);
+    if (!isPanTrigger) return;
+    // Prevent text selection and native context menu when initiating pan
+    e.preventDefault();
+    setIsPanning(true);
+    setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -166,7 +174,8 @@ export const Canvas = ({
     const newOffsetX = mouseX - (mouseX - offset.x) * scaleFactor;
     const newOffsetY = mouseY - (mouseY - offset.y) * scaleFactor;
 
-    setOffset({ x: newOffsetX, y: newOffsetY });
+    const clamped = clampOffset(newOffsetX, newOffsetY);
+    setOffset(clamped);
     setScale(newScale);
   };
 
@@ -175,7 +184,8 @@ export const Canvas = ({
     const scaleFactor = clamped / scale;
     const newOffsetX = focalX - (focalX - offset.x) * scaleFactor;
     const newOffsetY = focalY - (focalY - offset.y) * scaleFactor;
-    setOffset({ x: newOffsetX, y: newOffsetY });
+    const clampedOffset = clampOffset(newOffsetX, newOffsetY);
+    setOffset(clampedOffset);
     setScale(clamped);
   };
 
@@ -206,7 +216,10 @@ export const Canvas = ({
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!isPanning || !panStart) return;
-      setOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+      const nextX = e.clientX - panStart.x;
+      const nextY = e.clientY - panStart.y;
+      const clamped = clampOffset(nextX, nextY);
+      setOffset(clamped);
     };
     const onUp = () => setIsPanning(false);
     if (isPanning) {
@@ -232,15 +245,16 @@ export const Canvas = ({
         backgroundSize: "20px 20px",
       }}
       onClick={handleCanvasClick}
-      onMouseDown={handleMouseDown}
+      onMouseDownCapture={handleMouseDown}
       onWheel={handleWheel}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <div
         data-canvas-inner="true"
         className="absolute inset-0"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transformOrigin: "0 0" }}
       >
-        {/* SVG layer for relationships */}
+        {/* SVG layer for relationships (keep below entities so entities remain clickable) */}
         <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 0, overflow: "visible" }}>
         <defs>
           <marker

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Toolbar } from "@/components/Toolbar";
 import { Canvas } from "@/components/Canvas";
 import { EntityData } from "@/components/Entity";
@@ -139,6 +139,54 @@ const Index = () => {
       toast.error("Failed to import diagram. Please check the file format.");
     }
   };
+
+  // Auto-export (via local backup) on reload with confirm, and restore on next load
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      const hasContent = entities.length > 0 || relationships.length > 0;
+      if (!hasContent) return;
+
+      // Save a backup snapshot to localStorage so we can export it on next load
+      const snapshot = {
+        version: "1.0",
+        entities,
+        relationships,
+        exportedAt: new Date().toISOString(),
+      };
+      try {
+        localStorage.setItem("er_autosave_snapshot", JSON.stringify(snapshot));
+      } catch {}
+
+      // Show browser confirm dialog
+      e.preventDefault();
+      e.returnValue = "Export your diagram before leaving? A backup will be auto-exported on next load.";
+    };
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [entities, relationships]);
+
+  useEffect(() => {
+    // If there is a snapshot from a previous unload, auto-download it once
+    const raw = localStorage.getItem("er_autosave_snapshot");
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      const dataStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `er-diagram-autosave-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.info("Auto-exported your diagram from the previous session.");
+    } catch {}
+    localStorage.removeItem("er_autosave_snapshot");
+  }, []);
 
   return (
     <div className="h-screen flex flex-col">
