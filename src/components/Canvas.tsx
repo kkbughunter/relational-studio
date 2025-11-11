@@ -141,8 +141,15 @@ export const Canvas = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target !== canvasRef.current) return;
-    if (e.button === 1 || (e.button === 0 && isSpaceDown)) {
+    const target = e.target as HTMLElement;
+    const isCanvasBackground = target.getAttribute('data-canvas-root') === 'true' || 
+                               target.getAttribute('data-canvas-inner') === 'true';
+    
+    // Allow left-click panning on canvas background, or middle-click/space+left anywhere
+    if (e.button === 0 && isCanvasBackground && selectedTool === "select") {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
+    } else if (e.button === 1 || (e.button === 0 && isSpaceDown)) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
     }
@@ -237,7 +244,7 @@ export const Canvas = ({
     >
       <div
         data-canvas-inner="true"
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`, transformOrigin: "0 0" }}
       >
         {/* SVG layer for relationships */}

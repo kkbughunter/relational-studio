@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Toolbar } from "@/components/Toolbar";
 import { Canvas } from "@/components/Canvas";
 import { EntityData } from "@/components/Entity";
@@ -139,6 +139,41 @@ const Index = () => {
       toast.error("Failed to import diagram. Please check the file format.");
     }
   };
+
+  // Auto-export on page close/reload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (entities.length === 0 && relationships.length === 0) {
+        return;
+      }
+
+      // Show browser's confirmation dialog
+      e.preventDefault();
+      e.returnValue = '';
+
+      // Auto-export the diagram
+      const diagramData = {
+        version: "1.0",
+        entities,
+        relationships,
+        exportedAt: new Date().toISOString(),
+      };
+
+      const dataStr = JSON.stringify(diagramData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `er-diagram-autosave-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [entities, relationships]);
 
   return (
     <div className="h-screen flex flex-col">

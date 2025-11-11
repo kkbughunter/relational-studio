@@ -32,7 +32,55 @@ export const Relationship = ({
   onDelete,
   scale = 1,
 }: RelationshipProps) => {
-  // Calculate anchor points. If attribute anchors exist, connect to them; else connect entity centers.
+  // Calculate connection points based on entity edges
+  const calculateEdgePoint = (fromEntity: EntityData, toEntity: EntityData) => {
+    const fromCenterX = fromEntity.x + 125;
+    const fromCenterY = fromEntity.y + 50;
+    const toCenterX = toEntity.x + 125;
+    const toCenterY = toEntity.y + 50;
+
+    const dx = toCenterX - fromCenterX;
+    const dy = toCenterY - fromCenterY;
+
+    // Entity dimensions
+    const width = 250;
+    const height = 100; // Approximate base height
+
+    // Calculate which edge to use based on angle
+    const angle = Math.atan2(dy, dx);
+    
+    let x = fromCenterX;
+    let y = fromCenterY;
+
+    // Determine edge intersection point
+    if (Math.abs(dx) / width > Math.abs(dy) / height) {
+      // Connect to left or right edge
+      if (dx > 0) {
+        // Right edge
+        x = fromEntity.x + width;
+        y = fromCenterY + (dy / dx) * (width / 2);
+      } else {
+        // Left edge
+        x = fromEntity.x;
+        y = fromCenterY + (dy / dx) * (-width / 2);
+      }
+    } else {
+      // Connect to top or bottom edge
+      if (dy > 0) {
+        // Bottom edge
+        y = fromEntity.y + height;
+        x = fromCenterX + (dx / dy) * (height / 2);
+      } else {
+        // Top edge
+        y = fromEntity.y;
+        x = fromCenterX + (dx / dy) * (-height / 2);
+      }
+    }
+
+    return { x, y };
+  };
+
+  // Check for attribute anchors first
   const sourceAnchorEl = relationship.sourceAttributeId
     ? document.getElementById(`attr-anchor-${relationship.sourceEntityId}-${relationship.sourceAttributeId}`)
     : null;
@@ -40,18 +88,19 @@ export const Relationship = ({
     ? document.getElementById(`attr-anchor-${relationship.targetEntityId}-${relationship.targetAttributeId}`)
     : null;
 
-  let sourceX = sourceEntity.x + 125;
-  let sourceY = sourceEntity.y + 50;
-  let targetX = targetEntity.x + 125;
-  let targetY = targetEntity.y + 50;
+  let sourcePoint = calculateEdgePoint(sourceEntity, targetEntity);
+  let targetPoint = calculateEdgePoint(targetEntity, sourceEntity);
 
+  // Override with attribute anchors if they exist
   if (sourceAnchorEl) {
     const rect = sourceAnchorEl.getBoundingClientRect();
     const inner = sourceAnchorEl.closest('[data-canvas-inner="true"]') as HTMLElement | null;
     if (inner) {
       const innerRect = inner.getBoundingClientRect();
-      sourceX = (rect.left - innerRect.left) / scale;
-      sourceY = (rect.top - innerRect.top) / scale;
+      sourcePoint = {
+        x: (rect.left - innerRect.left) / scale,
+        y: (rect.top - innerRect.top) / scale,
+      };
     }
   }
   if (targetAnchorEl) {
@@ -59,10 +108,17 @@ export const Relationship = ({
     const inner = targetAnchorEl.closest('[data-canvas-inner="true"]') as HTMLElement | null;
     if (inner) {
       const innerRect = inner.getBoundingClientRect();
-      targetX = (rect.left - innerRect.left) / scale;
-      targetY = (rect.top - innerRect.top) / scale;
+      targetPoint = {
+        x: (rect.left - innerRect.left) / scale,
+        y: (rect.top - innerRect.top) / scale,
+      };
     }
   }
+
+  const sourceX = sourcePoint.x;
+  const sourceY = sourcePoint.y;
+  const targetX = targetPoint.x;
+  const targetY = targetPoint.y;
 
   // Calculate midpoint for the delete button
   const midX = (sourceX + targetX) / 2;
