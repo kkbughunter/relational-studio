@@ -109,6 +109,12 @@ const Index = () => {
     toast.success(`${relationshipType} relationship created`);
   };
 
+  const handleUpdateRelationship = (updatedRelationship: RelationshipData) => {
+    setRelationships((prev) =>
+      prev.map((r) => (r.id === updatedRelationship.id ? updatedRelationship : r))
+    );
+  };
+
   const handleDeleteRelationship = (id: string) => {
     pushHistory();
     setRelationships((prev) => prev.filter((r) => r.id !== id));
@@ -297,6 +303,7 @@ const Index = () => {
         onUpdateEntity={handleUpdateEntity}
         onDeleteEntity={handleDeleteEntity}
         onDeleteRelationship={handleDeleteRelationship}
+        onUpdateRelationship={handleUpdateRelationship}
         selectedTool={selectedTool}
         relationshipType={relationshipType}
         onCreateRelationship={handleCreateRelationship}

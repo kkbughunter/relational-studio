@@ -123,6 +123,7 @@ export const Entity = ({ entity, isSelected, onSelect, onUpdate, onDelete, getWo
   return (
     <div
       ref={entityRef}
+      id={`entity-root-${entity.id}`}
       data-entity-root="true"
       className={`absolute bg-entity-background border-2 rounded-lg shadow-lg cursor-move select-none min-w-[250px] ${
         isSelected ? "border-primary" : "border-entity-border"
