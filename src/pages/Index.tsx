@@ -13,7 +13,61 @@ const Index = () => {
   const [selectedTool, setSelectedTool] = useState<"select" | "entity" | "relationship">("select");
   const [relationshipType, setRelationshipType] = useState<RelationshipType>("one-to-many");
 
+  // History stacks for undo/redo
+  type DiagramSnapshot = {
+    entities: EntityData[];
+    relationships: RelationshipData[];
+    selectedEntityId: string | null;
+    selectedRelationshipId: string | null;
+  };
+  const [past, setPast] = useState<DiagramSnapshot[]>([]);
+  const [future, setFuture] = useState<DiagramSnapshot[]>([]);
+
+  const getSnapshot = (): DiagramSnapshot => ({
+    entities,
+    relationships,
+    selectedEntityId,
+    selectedRelationshipId,
+  });
+
+  const restoreSnapshot = (snap: DiagramSnapshot) => {
+    setEntities(snap.entities);
+    setRelationships(snap.relationships);
+    setSelectedEntityId(snap.selectedEntityId);
+    setSelectedRelationshipId(snap.selectedRelationshipId);
+  };
+
+  const pushHistory = () => {
+    setPast((prev) => [...prev, getSnapshot()]);
+    setFuture([]);
+  };
+
+  const handleUndo = () => {
+    setPast((prevPast) => {
+      if (prevPast.length === 0) return prevPast;
+      const newPast = prevPast.slice(0, -1);
+      const previous = prevPast[prevPast.length - 1];
+      const current = getSnapshot();
+      restoreSnapshot(previous);
+      setFuture((prevFuture) => [current, ...prevFuture]);
+      return newPast;
+    });
+  };
+
+  const handleRedo = () => {
+    setFuture((prevFuture) => {
+      if (prevFuture.length === 0) return prevFuture;
+      const [next, ...rest] = prevFuture;
+      const current = getSnapshot();
+      setPast((prevPast) => [...prevPast, current]);
+      restoreSnapshot(next);
+      return rest;
+    });
+  };
+
   const handleUpdateEntity = (updatedEntity: EntityData) => {
+    // Push history before applying the update
+    pushHistory();
     setEntities((prev) => {
       const existing = prev.find((e) => e.id === updatedEntity.id);
       if (existing) {
@@ -24,6 +78,7 @@ const Index = () => {
   };
 
   const handleDeleteEntity = (id: string) => {
+    pushHistory();
     setEntities((prev) => prev.filter((e) => e.id !== id));
     // Also delete any relationships connected to this entity
     setRelationships((prev) =>
@@ -41,6 +96,7 @@ const Index = () => {
     sourceAttributeId?: string,
     targetAttributeId?: string
   ) => {
+    pushHistory();
     const newRelationship: RelationshipData = {
       id: `rel-${Date.now()}`,
       sourceEntityId,
@@ -54,6 +110,7 @@ const Index = () => {
   };
 
   const handleDeleteRelationship = (id: string) => {
+    pushHistory();
     setRelationships((prev) => prev.filter((r) => r.id !== id));
     if (selectedRelationshipId === id) {
       setSelectedRelationshipId(null);
@@ -66,6 +123,7 @@ const Index = () => {
       toast.info("Canvas is already empty");
       return;
     }
+    pushHistory();
     setEntities([]);
     setRelationships([]);
     setSelectedEntityId(null);
@@ -126,6 +184,7 @@ const Index = () => {
       }
 
       // Load the data
+      pushHistory();
       setEntities(data.entities);
       setRelationships(data.relationships);
       setSelectedEntityId(null);
@@ -165,6 +224,29 @@ const Index = () => {
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [entities, relationships]);
+
+  // Keyboard shortcuts: Undo (Ctrl/Cmd+Z), Redo (Ctrl+Y or Ctrl+Shift+Z)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isInput =
+        (e.target as HTMLElement)?.closest("input, textarea, [contenteditable=''], [contenteditable='true']");
+      if (isInput) return; // Let native undo/redo work inside inputs
+
+      const isMac = navigator.platform.toLowerCase().includes("mac");
+      const ctrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+      if (!ctrlOrCmd) return;
+
+      if (e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey)) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [past, future, entities, relationships, selectedEntityId, selectedRelationshipId]);
 
   useEffect(() => {
     // If there is a snapshot from a previous unload, auto-download it once

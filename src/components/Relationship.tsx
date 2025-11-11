@@ -225,14 +225,6 @@ export const Relationship = ({
 
   return (
     <>
-      <circle
-        cx={sourceX}
-        cy={sourceY}
-        r={isSelected ? 3 : 2}
-        fill={strokeColor}
-        vectorEffect="non-scaling-stroke"
-        pointerEvents="none"
-      />
       <path
         d={path}
         stroke={strokeColor}
@@ -246,14 +238,6 @@ export const Relationship = ({
           e.stopPropagation();
           onSelect();
         }}
-      />
-      <circle
-        cx={targetX}
-        cy={targetY}
-        r={isSelected ? 3 : 2}
-        fill={strokeColor}
-        vectorEffect="non-scaling-stroke"
-        pointerEvents="none"
       />
       {renderNotation()}
       
