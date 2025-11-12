@@ -70,7 +70,7 @@ export const Relation = ({
 
   // Calculate column-specific anchor points
   const getColumnAnchorPoint = (table: Table, columnId: string) => {
-    const width = 420;
+    const width = 445;
     const headerHeight = 60;
     const columnHeight = 40;
     
@@ -149,7 +149,7 @@ export const Relation = ({
     const obstacles = allTables.map(table => ({
       x: table.position.x - 30,
       y: table.position.y - 30,
-      width: 420 + 60,
+      width: 480 + 60,
       height: Math.max(120, 60 + table.columns.length * 40) + 60
     }));
     
@@ -625,9 +625,74 @@ export const Relation = ({
       {/* Tooltip */}
       {showTooltip && (
         <g>
+          {/* Background */}
+          <rect
+            x={tooltipPosition.x - 80}
+            y={tooltipPosition.y - 40}
+            width="160"
+            height="80"
+            fill="white"
+            stroke="#d1d5db"
+            strokeWidth="1"
+            rx="8"
+            className="drop-shadow-lg"
+          />
+          
+          {/* Relationship type buttons */}
+          <foreignObject
+            x={tooltipPosition.x - 75}
+            y={tooltipPosition.y - 35}
+            width="150"
+            height="25"
+          >
+            <div className="flex gap-1">
+              {['1:1', '1:N', 'N:M'].map((type) => (
+                <button
+                  key={type}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateRelation({ type: type as '1:1' | '1:N' | 'N:M' });
+                  }}
+                  className={`px-2 py-1 text-xs rounded ${
+                    relation.type === type
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </foreignObject>
+          
+          {/* Relationship info */}
+          <foreignObject
+            x={tooltipPosition.x - 75}
+            y={tooltipPosition.y - 5}
+            width="150"
+            height="15"
+          >
+            <div className="text-xs text-gray-600">
+              {relation.name || `${sourceTable.name}_${targetTable.name}`}
+            </div>
+          </foreignObject>
+          
+          {/* ON DELETE/UPDATE info */}
+          <foreignObject
+            x={tooltipPosition.x - 75}
+            y={tooltipPosition.y + 10}
+            width="150"
+            height="15"
+          >
+            <div className="text-xs text-gray-500">
+              DEL: {relation.onDelete} | UPD: {relation.onUpdate}
+            </div>
+          </foreignObject>
+          
+          {/* Action buttons */}
           <circle
             cx={tooltipPosition.x - 15}
-            cy={tooltipPosition.y}
+            cy={tooltipPosition.y + 30}
             r="12"
             fill="white"
             stroke="#d1d5db"
@@ -641,7 +706,7 @@ export const Relation = ({
           />
           <foreignObject
             x={tooltipPosition.x - 21}
-            y={tooltipPosition.y - 6}
+            y={tooltipPosition.y + 24}
             width="12"
             height="12"
             className="pointer-events-none"
@@ -651,7 +716,7 @@ export const Relation = ({
           
           <circle
             cx={tooltipPosition.x + 15}
-            cy={tooltipPosition.y}
+            cy={tooltipPosition.y + 30}
             r="12"
             fill="white"
             stroke="#d1d5db"
@@ -665,7 +730,7 @@ export const Relation = ({
           />
           <foreignObject
             x={tooltipPosition.x + 9}
-            y={tooltipPosition.y - 6}
+            y={tooltipPosition.y + 24}
             width="12"
             height="12"
             className="pointer-events-none"
