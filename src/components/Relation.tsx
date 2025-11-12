@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Table, Relation as RelationType, RELATIONSHIP_ACTIONS } from '@/types/schema';
-import { PathFinder } from '@/utils/pathfinding';
+import { ExternalPathfinder } from '@/utils/externalPathfinding';
 import { useSchemaStore } from '@/store/useSchemaStore';
 
 interface RelationProps {
@@ -141,41 +141,20 @@ export const Relation = ({
         });
         return path + ` L ${targetPoint.x} ${targetPoint.y}`;
       }
-      // Direct line for manual mode without waypoints
       return `M ${sourcePoint.x} ${sourcePoint.y} L ${targetPoint.x} ${targetPoint.y}`;
     }
 
-    // Auto routing - smart pathfinding
-    const margin = 50;
-    const tableWidth = 420;
-    const isGoingRight = targetPoint.x > sourcePoint.x;
-    
-    const tableRows = allTables.map(t => ({
-      top: t.position.y - margin,
-      bottom: t.position.y + Math.max(120, 60 + t.columns.length * 40) + margin,
-      left: t.position.x - margin,
-      right: t.position.x + tableWidth + margin
+    // Auto routing using external pathfinding library
+    const pathfinder = new ExternalPathfinder(20);
+    const obstacles = allTables.map(table => ({
+      x: table.position.x - 30,
+      y: table.position.y - 30,
+      width: 420 + 60,
+      height: Math.max(120, 60 + table.columns.length * 40) + 60
     }));
     
-    const midY = (sourcePoint.y + targetPoint.y) / 2;
-    const hasObstacle = tableRows.some(table => 
-      midY >= table.top && midY <= table.bottom &&
-      ((sourcePoint.x < table.right && targetPoint.x > table.left) ||
-       (sourcePoint.x > table.left && targetPoint.x < table.right))
-    );
-    
-    if (!hasObstacle) {
-      return `M ${sourcePoint.x} ${sourcePoint.y} L ${sourcePoint.x + (isGoingRight ? 30 : -30)} ${sourcePoint.y} L ${sourcePoint.x + (isGoingRight ? 30 : -30)} ${midY} L ${targetPoint.x + (isGoingRight ? -30 : 30)} ${midY} L ${targetPoint.x + (isGoingRight ? -30 : 30)} ${targetPoint.y} L ${targetPoint.x} ${targetPoint.y}`;
-    }
-    
-    const sourceOut = sourcePoint.x + (isGoingRight ? 30 : -30);
-    const targetOut = targetPoint.x + (isGoingRight ? -30 : 30);
-    const minY = Math.min(...tableRows.map(t => t.top)) - 30;
-    const maxY = Math.max(...tableRows.map(t => t.bottom)) + 30;
-    const useTopRoute = Math.abs(sourcePoint.y - minY) < Math.abs(sourcePoint.y - maxY);
-    const routeY = useTopRoute ? minY : maxY;
-    
-    return `M ${sourcePoint.x} ${sourcePoint.y} L ${sourceOut} ${sourcePoint.y} L ${sourceOut} ${routeY} L ${targetOut} ${routeY} L ${targetOut} ${targetPoint.y} L ${targetPoint.x} ${targetPoint.y}`;
+    const pathPoints = pathfinder.findPath(sourcePoint, targetPoint, obstacles);
+    return pathfinder.createSVGPath(pathPoints);
   };
 
   let path;

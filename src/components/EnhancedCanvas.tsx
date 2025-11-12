@@ -295,7 +295,7 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
               transformOrigin: '0 0',
             }}
           >
-            <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 10, overflow: 'visible', pointerEvents: 'none' }}>
+            <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, overflow: 'visible', pointerEvents: 'none' }}>
               <defs>
                 <marker
                   id="arrowhead"
@@ -418,7 +418,7 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
                 .filter(Boolean);
               
               return (
-                <div key={table.id} className="pointer-events-auto">
+                <div key={table.id} className="pointer-events-auto relative" style={{ zIndex: 10 }}>
                   <Table
                     table={table}
                     isSelected={
