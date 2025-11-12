@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Table2, GitBranch, EyeOff, Palette, Info, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Search, Table2, GitBranch, Eye, EyeOff, Palette, Info, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';

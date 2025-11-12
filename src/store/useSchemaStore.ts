@@ -14,6 +14,7 @@ interface SchemaState {
   selectedRelationId: string | null;
   selectedTool: 'select' | 'table';
   relationshipType: '1:1' | '1:N' | 'N:M';
+  globalRoutingMode: 'auto' | 'manual';
   
   // Canvas state
   canvasOffset: { x: number; y: number };
@@ -41,6 +42,7 @@ interface SchemaState {
   setSelectedRelation: (id: string | null) => void;
   setSelectedTool: (tool: 'select' | 'table') => void;
   setRelationshipType: (type: '1:1' | '1:N' | 'N:M') => void;
+  setGlobalRoutingMode: (mode: 'auto' | 'manual') => void;
   setCanvasOffset: (offset: { x: number; y: number }) => void;
   setCanvasScale: (scale: number) => void;
   navigateToTable: (tableId: string) => void;
@@ -63,6 +65,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   selectedRelationId: null,
   selectedTool: 'select',
   relationshipType: '1:N',
+  globalRoutingMode: 'auto',
   canvasOffset: { x: 0, y: 0 },
   canvasScale: 1,
   history: [],
@@ -137,6 +140,8 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   setSelectedTool: (tool) => set({ selectedTool: tool }),
 
   setRelationshipType: (type) => set({ relationshipType: type }),
+
+  setGlobalRoutingMode: (mode) => set({ globalRoutingMode: mode }),
 
   setCanvasOffset: (offset) => set({ canvasOffset: offset }),
 

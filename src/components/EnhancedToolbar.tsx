@@ -12,7 +12,8 @@ import {
   Redo,
   FileText,
   Database,
-  Save
+  Save,
+  Route
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -36,10 +37,12 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
   const {
     selectedTool,
     relationshipType,
+    globalRoutingMode,
     tables,
     relations,
     setSelectedTool,
     setRelationshipType,
+    setGlobalRoutingMode,
     clearAll,
     undo,
     redo,
@@ -185,6 +188,22 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
             <SelectItem value="sqlite">SQLite</SelectItem>
             <SelectItem value="sqlserver">SQL Server</SelectItem>
             <SelectItem value="oracle">Oracle</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="h-6 w-px bg-gray-300" />
+
+      {/* Routing Mode */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <Route className="h-4 w-4 text-gray-500" />
+        <Select value={globalRoutingMode} onValueChange={setGlobalRoutingMode}>
+          <SelectTrigger className="w-24">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">Auto</SelectItem>
+            <SelectItem value="manual">Manual</SelectItem>
           </SelectContent>
         </Select>
       </div>

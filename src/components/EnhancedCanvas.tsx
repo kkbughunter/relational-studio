@@ -18,6 +18,7 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
     selectedRelationId,
     selectedTool,
     relationshipType,
+    globalRoutingMode,
     canvasOffset,
     canvasScale,
     setSelectedTable,
@@ -38,6 +39,7 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
     sourceColumnId: string;
     targetTableId?: string;
     targetColumnId?: string;
+    waypoints?: Array<{ x: number; y: number }>;
   } | null>(null);
   const [showRelationDialog, setShowRelationDialog] = useState(false);
   const [isSpaceDown, setIsSpaceDown] = useState(false);
@@ -100,6 +102,23 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
       return;
     }
 
+    // Handle waypoint creation in manual mode
+    if (pendingRelation && !pendingRelation.targetTableId && globalRoutingMode === 'manual' && !clickedTable) {
+      const rect = canvasRef.current!.getBoundingClientRect();
+      let worldX = (e.clientX - rect.left - canvasOffset.x) / canvasScale;
+      let worldY = (e.clientY - rect.top - canvasOffset.y) / canvasScale;
+      
+      // Snap to grid (20px grid)
+      worldX = Math.round(worldX / 20) * 20;
+      worldY = Math.round(worldY / 20) * 20;
+      
+      setPendingRelation({
+        ...pendingRelation,
+        waypoints: [...(pendingRelation.waypoints || []), { x: worldX, y: worldY }]
+      });
+      return;
+    }
+
     if (!clickedTable) {
       setSelectedTable(null);
       setSelectedRelation(null);
@@ -157,6 +176,8 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
       type,
       onDelete: 'NO ACTION',
       onUpdate: 'NO ACTION',
+      routingMode: globalRoutingMode,
+      waypoints: pendingRelation.waypoints || [],
     };
     
     addRelation(newRelation);
@@ -274,7 +295,7 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
               transformOrigin: '0 0',
             }}
           >
-            <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 0, overflow: 'visible' }}>
+            <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 10, overflow: 'visible', pointerEvents: 'none' }}>
               <defs>
                 <marker
                   id="arrowhead"
@@ -289,65 +310,104 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
               </defs>
               
               {relations.map((relation) => {
-                const sourceTable = tables.find((t) => t.id === relation.fromTableId);
-                const targetTable = tables.find((t) => t.id === relation.toTableId);
+                try {
+                  const sourceTable = tables.find((t) => t.id === relation.fromTableId);
+                  const targetTable = tables.find((t) => t.id === relation.toTableId);
 
-                if (!sourceTable || !targetTable) return null;
+                  if (!sourceTable || !targetTable || !relation.fromColumnId || !relation.toColumnId) {
+                    return null;
+                  }
 
-                return (
-                  <g key={relation.id} className="pointer-events-auto">
+                  return (
                     <Relation
+                      key={relation.id}
                       relation={relation}
                       sourceTable={sourceTable}
                       targetTable={targetTable}
+                      allTables={tables}
+                      allRelations={relations}
+                      selectedTableId={selectedTableId}
                       isSelected={relation.id === selectedRelationId}
                       onSelect={() => setSelectedRelation(relation.id)}
                       onDelete={() => deleteRelation(relation.id)}
                       onUpdate={updateRelation}
                       scale={canvasScale}
                     />
-                  </g>
-                );
+                  );
+                } catch (error) {
+                  console.warn('Error rendering relation:', relation.id, error);
+                  return null;
+                }
               })}
               
               {/* Pending connection line */}
               {pendingRelation && !pendingRelation.targetTableId && (
-                <line
-                  x1={0}
-                  y1={0}
-                  x2={0}
-                  y2={0}
-                  stroke="#3B82F6"
-                  strokeWidth="2"
-                  strokeDasharray="5,5"
-                  className="pointer-events-none"
-                  ref={(line) => {
-                    if (line && pendingRelation) {
-                      const sourceTable = tables.find(t => t.id === pendingRelation.sourceTableId);
-                      const sourceColumn = sourceTable?.columns.find(c => c.id === pendingRelation.sourceColumnId);
-                      if (sourceTable && sourceColumn) {
-                        const columnIndex = sourceTable.columns.findIndex(c => c.id === sourceColumn.id);
-                        const sourceY = sourceTable.position.y + 60 + (columnIndex * 32) + 16;
-                        const sourceX = sourceTable.position.x + 280;
-                        line.setAttribute('x1', sourceX.toString());
-                        line.setAttribute('y1', sourceY.toString());
-                        
-                        const handleMouseMove = (e: MouseEvent) => {
-                          const rect = canvasRef.current?.getBoundingClientRect();
-                          if (rect) {
-                            const worldX = (e.clientX - rect.left - canvasOffset.x) / canvasScale;
-                            const worldY = (e.clientY - rect.top - canvasOffset.y) / canvasScale;
-                            line.setAttribute('x2', worldX.toString());
-                            line.setAttribute('y2', worldY.toString());
-                          }
-                        };
-                        
-                        document.addEventListener('mousemove', handleMouseMove);
-                        return () => document.removeEventListener('mousemove', handleMouseMove);
+                <g>
+                  {/* Waypoint circles with numbers */}
+                  {(pendingRelation.waypoints || []).map((wp, index) => (
+                    <g key={index}>
+                      <circle
+                        cx={wp.x}
+                        cy={wp.y}
+                        r={8}
+                        fill="#3B82F6"
+                        stroke="white"
+                        strokeWidth={2}
+                        className="pointer-events-none"
+                      />
+                      <text
+                        x={wp.x}
+                        y={wp.y + 3}
+                        textAnchor="middle"
+                        fontSize="10"
+                        fill="white"
+                        fontWeight="bold"
+                        className="pointer-events-none"
+                      >
+                        {index + 1}
+                      </text>
+                    </g>
+                  ))}
+                  
+                  {/* Connection path */}
+                  <path
+                    stroke="#3B82F6"
+                    strokeWidth="2"
+                    strokeDasharray="5,5"
+                    fill="none"
+                    className="pointer-events-none"
+                    ref={(path) => {
+                      if (path && pendingRelation) {
+                        const sourceTable = tables.find(t => t.id === pendingRelation.sourceTableId);
+                        const sourceColumn = sourceTable?.columns.find(c => c.id === pendingRelation.sourceColumnId);
+                        if (sourceTable && sourceColumn) {
+                          const columnIndex = sourceTable.columns.findIndex(c => c.id === sourceColumn.id);
+                          const sourceY = sourceTable.position.y + 60 + (columnIndex * 40) + 20;
+                          const sourceX = sourceTable.position.x + 420;
+                          
+                          const handleMouseMove = (e: MouseEvent) => {
+                            const rect = canvasRef.current?.getBoundingClientRect();
+                            if (rect) {
+                              const worldX = (e.clientX - rect.left - canvasOffset.x) / canvasScale;
+                              const worldY = (e.clientY - rect.top - canvasOffset.y) / canvasScale;
+                              
+                              let pathStr = `M ${sourceX} ${sourceY}`;
+                              (pendingRelation.waypoints || []).forEach(wp => {
+                                pathStr += ` L ${wp.x} ${wp.y}`;
+                              });
+                              pathStr += ` L ${worldX} ${worldY}`;
+                              
+                              path.setAttribute('d', pathStr);
+                            }
+                          };
+                          
+                          document.addEventListener('mousemove', handleMouseMove);
+                          return () => document.removeEventListener('mousemove', handleMouseMove);
+                        }
                       }
-                    }
-                  }}
-                />
+                    }}
+                  />
+                </g>
               )}
             </svg>
 
@@ -394,7 +454,10 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
 
           {pendingRelation && !pendingRelation.targetTableId && (
             <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg pointer-events-none z-50">
-              Click on another column to create relationship
+              {globalRoutingMode === 'manual' 
+                ? `Click to add waypoints (${(pendingRelation.waypoints || []).length} added), then click another column to finish`
+                : 'Click on another column to create relationship'
+              }
             </div>
           )}
       </div>

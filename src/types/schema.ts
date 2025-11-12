@@ -52,6 +52,7 @@ export interface Relation {
   onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION';
   onUpdate: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION';
   name?: string;
+  routingMode?: 'auto' | 'manual';
   sourceAnchor?: { side: 'top' | 'right' | 'bottom' | 'left'; offset?: number };
   targetAnchor?: { side: 'top' | 'right' | 'bottom' | 'left'; offset?: number };
   waypoints?: Array<{ x: number; y: number }>;

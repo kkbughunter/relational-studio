@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -6,11 +6,16 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Table, Relation as RelationType, RELATIONSHIP_ACTIONS } from '@/types/schema';
+import { PathFinder } from '@/utils/pathfinding';
+import { useSchemaStore } from '@/store/useSchemaStore';
 
 interface RelationProps {
   relation: RelationType;
   sourceTable: Table;
   targetTable: Table;
+  allTables: Table[];
+  allRelations: RelationType[];
+  selectedTableId?: string | null;
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
@@ -22,24 +27,52 @@ export const Relation = ({
   relation,
   sourceTable,
   targetTable,
+  allTables,
+  allRelations,
+  selectedTableId,
   isSelected,
   onSelect,
   onDelete,
   onUpdate,
   scale = 1,
 }: RelationProps) => {
+  const { globalRoutingMode } = useSchemaStore();
   const [showSettings, setShowSettings] = useState(false);
   const [draggingHandle, setDraggingHandle] = useState<'source' | 'target' | number | null>(null);
   const [tempWaypoints, setTempWaypoints] = useState<Array<{ x: number; y: number }>>(relation.waypoints || []);
+  
+  // Update temp waypoints when relation waypoints change
+  useEffect(() => {
+    setTempWaypoints(relation.waypoints || []);
+  }, [relation.waypoints]);
+  const [isHovered, setIsHovered] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
-  const strokeColor = isSelected ? 'hsl(var(--primary))' : '#6B7280';
-  const strokeWidth = isSelected ? 3 : 2;
+  // Safety check for required props
+  if (!relation || !sourceTable || !targetTable) {
+    return null;
+  }
+
+  const isTableSelected = sourceTable.id === selectedTableId || targetTable.id === selectedTableId;
+  const strokeColor = isSelected ? 'hsl(var(--primary))' : (isHovered || isTableSelected) ? '#3B82F6' : '#6B7280';
+  const strokeWidth = isSelected ? 3 : (isHovered || isTableSelected) ? 2.5 : 2;
+
+  // Calculate offset for multiple relations from same column
+  const getRelationOffset = (tableId: string, columnId: string, relationId: string) => {
+    const sameColumnRelations = allRelations.filter(r => 
+      (r.fromTableId === tableId && r.fromColumnId === columnId) ||
+      (r.toTableId === tableId && r.toColumnId === columnId)
+    );
+    const index = sameColumnRelations.findIndex(r => r.id === relationId);
+    return Math.max(0, index * 15); // Only positive offsets (downward)
+  };
 
   // Calculate column-specific anchor points
   const getColumnAnchorPoint = (table: Table, columnId: string) => {
-    const width = 280;
+    const width = 420;
     const headerHeight = 60;
-    const columnHeight = 32;
+    const columnHeight = 40;
     
     const columnIndex = table.columns.findIndex(col => col.id === columnId);
     if (columnIndex === -1) {
@@ -54,46 +87,104 @@ export const Relation = ({
     const sourceCenter = { x: sourceTable.position.x + width / 2, y: sourceTable.position.y + headerHeight / 2 };
     const targetCenter = { x: targetTable.position.x + width / 2, y: targetTable.position.y + headerHeight / 2 };
     
+    const offset = getRelationOffset(table.id, columnId, relation.id);
+    
     if (table === sourceTable) {
       // Connect from right side if target is to the right, otherwise from left
       const connectFromRight = targetCenter.x > sourceCenter.x;
       return {
         x: table.position.x + (connectFromRight ? width : 0),
-        y: columnY
+        y: columnY + offset
       };
     } else {
       // Connect from left side if source is to the left, otherwise from right
       const connectFromLeft = sourceCenter.x < targetCenter.x;
       return {
         x: table.position.x + (connectFromLeft ? 0 : width),
-        y: columnY
+        y: columnY + offset
       };
     }
   };
 
-  const sourcePoint = getColumnAnchorPoint(sourceTable, relation.fromColumnId);
-  const targetPoint = getColumnAnchorPoint(targetTable, relation.toColumnId);
-
-  // Use waypoints if they exist
-  const waypoints = tempWaypoints.length > 0 ? tempWaypoints : (relation.waypoints || []);
-
-  // Calculate midpoint for controls
-  let midX, midY;
-  if (waypoints.length > 0) {
-    const midIndex = Math.floor(waypoints.length / 2);
-    midX = waypoints[midIndex].x;
-    midY = waypoints[midIndex].y;
-  } else {
-    midX = (sourcePoint.x + targetPoint.x) / 2;
-    midY = (sourcePoint.y + targetPoint.y) / 2;
+  let sourcePoint, targetPoint;
+  try {
+    sourcePoint = getColumnAnchorPoint(sourceTable, relation.fromColumnId);
+    targetPoint = getColumnAnchorPoint(targetTable, relation.toColumnId);
+    
+    // Validate points
+    if (!sourcePoint || !targetPoint || isNaN(sourcePoint.x) || isNaN(sourcePoint.y) || isNaN(targetPoint.x) || isNaN(targetPoint.y)) {
+      return null;
+    }
+  } catch (error) {
+    console.warn('Error calculating anchor points:', error);
+    return null;
   }
 
-  // Create path with waypoints
-  let path = `M ${sourcePoint.x} ${sourcePoint.y}`;
-  waypoints.forEach(wp => {
-    path += ` L ${wp.x} ${wp.y}`;
-  });
-  path += ` L ${targetPoint.x} ${targetPoint.y}`;
+  // Use waypoints from relation or temp waypoints during dragging
+  const waypoints = draggingHandle !== null ? tempWaypoints : (relation.waypoints || []);
+
+  // Calculate midpoint for controls
+  const midX = (sourcePoint.x + targetPoint.x) / 2;
+  const midY = (sourcePoint.y + targetPoint.y) / 2;
+
+  // Get path based on routing mode
+  const getPath = () => {
+    const routingMode = relation.routingMode || globalRoutingMode;
+    
+    if (routingMode === 'manual') {
+      if (waypoints.length > 0) {
+        let path = `M ${sourcePoint.x} ${sourcePoint.y}`;
+        waypoints.forEach(wp => {
+          if (wp && !isNaN(wp.x) && !isNaN(wp.y)) {
+            path += ` L ${wp.x} ${wp.y}`;
+          }
+        });
+        return path + ` L ${targetPoint.x} ${targetPoint.y}`;
+      }
+      // Direct line for manual mode without waypoints
+      return `M ${sourcePoint.x} ${sourcePoint.y} L ${targetPoint.x} ${targetPoint.y}`;
+    }
+
+    // Auto routing - smart pathfinding
+    const margin = 50;
+    const tableWidth = 420;
+    const isGoingRight = targetPoint.x > sourcePoint.x;
+    
+    const tableRows = allTables.map(t => ({
+      top: t.position.y - margin,
+      bottom: t.position.y + Math.max(120, 60 + t.columns.length * 40) + margin,
+      left: t.position.x - margin,
+      right: t.position.x + tableWidth + margin
+    }));
+    
+    const midY = (sourcePoint.y + targetPoint.y) / 2;
+    const hasObstacle = tableRows.some(table => 
+      midY >= table.top && midY <= table.bottom &&
+      ((sourcePoint.x < table.right && targetPoint.x > table.left) ||
+       (sourcePoint.x > table.left && targetPoint.x < table.right))
+    );
+    
+    if (!hasObstacle) {
+      return `M ${sourcePoint.x} ${sourcePoint.y} L ${sourcePoint.x + (isGoingRight ? 30 : -30)} ${sourcePoint.y} L ${sourcePoint.x + (isGoingRight ? 30 : -30)} ${midY} L ${targetPoint.x + (isGoingRight ? -30 : 30)} ${midY} L ${targetPoint.x + (isGoingRight ? -30 : 30)} ${targetPoint.y} L ${targetPoint.x} ${targetPoint.y}`;
+    }
+    
+    const sourceOut = sourcePoint.x + (isGoingRight ? 30 : -30);
+    const targetOut = targetPoint.x + (isGoingRight ? -30 : 30);
+    const minY = Math.min(...tableRows.map(t => t.top)) - 30;
+    const maxY = Math.max(...tableRows.map(t => t.bottom)) + 30;
+    const useTopRoute = Math.abs(sourcePoint.y - minY) < Math.abs(sourcePoint.y - maxY);
+    const routeY = useTopRoute ? minY : maxY;
+    
+    return `M ${sourcePoint.x} ${sourcePoint.y} L ${sourceOut} ${sourcePoint.y} L ${sourceOut} ${routeY} L ${targetOut} ${routeY} L ${targetOut} ${targetPoint.y} L ${targetPoint.x} ${targetPoint.y}`;
+  };
+
+  let path;
+  try {
+    path = getPath();
+  } catch (error) {
+    console.warn('Error creating path:', error);
+    path = `M ${sourcePoint.x} ${sourcePoint.y} L ${targetPoint.x} ${targetPoint.y}`;
+  }
 
   // Handle dragging
   const handleMouseDown = (e: React.MouseEvent, type: 'source' | 'target' | number) => {
@@ -114,7 +205,9 @@ export const Relation = ({
     
     if (typeof draggingHandle === 'number') {
       const newWaypoints = [...waypoints];
-      newWaypoints[draggingHandle] = { x: svgP.x, y: svgP.y };
+      const snappedX = Math.round(svgP.x / 20) * 20;
+      const snappedY = Math.round(svgP.y / 20) * 20;
+      newWaypoints[draggingHandle] = { x: snappedX, y: snappedY };
       setTempWaypoints(newWaypoints);
     }
   };
@@ -159,35 +252,36 @@ export const Relation = ({
 
   // Render relationship notation
   const renderNotation = () => {
-    const angle = Math.atan2(targetPoint.y - sourcePoint.y, targetPoint.x - sourcePoint.x);
+    // For bent paths, calculate angles from actual path segments
+    const midX = sourcePoint.x + (targetPoint.x - sourcePoint.x) * 0.5;
     
-    // Source side notation
-    const sourceNotationX = sourcePoint.x + Math.cos(angle) * 30;
-    const sourceNotationY = sourcePoint.y + Math.sin(angle) * 30;
+    // Source notation on horizontal segment
+    const sourceNotationX = sourcePoint.x + 20;
+    const sourceNotationY = sourcePoint.y;
     
-    // Target side notation
-    const targetNotationX = targetPoint.x - Math.cos(angle) * 30;
-    const targetNotationY = targetPoint.y - Math.sin(angle) * 30;
+    // Target notation on horizontal segment
+    const targetNotationX = targetPoint.x - 20;
+    const targetNotationY = targetPoint.y;
 
     if (relation.type === '1:1') {
       return (
         <>
           {/* One side at source */}
           <line
-            x1={sourceNotationX - Math.sin(angle) * 8}
-            y1={sourceNotationY + Math.cos(angle) * 8}
-            x2={sourceNotationX + Math.sin(angle) * 8}
-            y2={sourceNotationY - Math.cos(angle) * 8}
+            x1={sourceNotationX}
+            y1={sourceNotationY - 8}
+            x2={sourceNotationX}
+            y2={sourceNotationY + 8}
             stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
           {/* One side at target */}
           <line
-            x1={targetNotationX - Math.sin(angle) * 8}
-            y1={targetNotationY + Math.cos(angle) * 8}
-            x2={targetNotationX + Math.sin(angle) * 8}
-            y2={targetNotationY - Math.cos(angle) * 8}
+            x1={targetNotationX}
+            y1={targetNotationY - 8}
+            x2={targetNotationX}
+            y2={targetNotationY + 8}
             stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
@@ -199,10 +293,10 @@ export const Relation = ({
         <>
           {/* One side at source */}
           <line
-            x1={sourceNotationX - Math.sin(angle) * 8}
-            y1={sourceNotationY + Math.cos(angle) * 8}
-            x2={sourceNotationX + Math.sin(angle) * 8}
-            y2={sourceNotationY - Math.cos(angle) * 8}
+            x1={sourceNotationX}
+            y1={sourceNotationY - 8}
+            x2={sourceNotationX}
+            y2={sourceNotationY + 8}
             stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
@@ -212,8 +306,8 @@ export const Relation = ({
             <line
               x1={targetNotationX}
               y1={targetNotationY}
-              x2={targetNotationX - Math.cos(angle) * 15 - Math.sin(angle) * 8}
-              y2={targetNotationY - Math.sin(angle) * 15 + Math.cos(angle) * 8}
+              x2={targetNotationX - 15}
+              y2={targetNotationY - 8}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
@@ -221,8 +315,8 @@ export const Relation = ({
             <line
               x1={targetNotationX}
               y1={targetNotationY}
-              x2={targetNotationX - Math.cos(angle) * 15 + Math.sin(angle) * 8}
-              y2={targetNotationY - Math.sin(angle) * 15 - Math.cos(angle) * 8}
+              x2={targetNotationX - 15}
+              y2={targetNotationY + 8}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
@@ -230,8 +324,8 @@ export const Relation = ({
             <line
               x1={targetNotationX}
               y1={targetNotationY}
-              x2={targetNotationX - Math.cos(angle) * 15}
-              y2={targetNotationY - Math.sin(angle) * 15}
+              x2={targetNotationX - 15}
+              y2={targetNotationY}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
@@ -247,8 +341,8 @@ export const Relation = ({
             <line
               x1={sourceNotationX}
               y1={sourceNotationY}
-              x2={sourceNotationX + Math.cos(angle) * 15 - Math.sin(angle) * 8}
-              y2={sourceNotationY + Math.sin(angle) * 15 + Math.cos(angle) * 8}
+              x2={sourceNotationX + 15}
+              y2={sourceNotationY - 8}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
@@ -256,8 +350,8 @@ export const Relation = ({
             <line
               x1={sourceNotationX}
               y1={sourceNotationY}
-              x2={sourceNotationX + Math.cos(angle) * 15 + Math.sin(angle) * 8}
-              y2={sourceNotationY + Math.sin(angle) * 15 - Math.cos(angle) * 8}
+              x2={sourceNotationX + 15}
+              y2={sourceNotationY + 8}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
@@ -265,8 +359,8 @@ export const Relation = ({
             <line
               x1={sourceNotationX}
               y1={sourceNotationY}
-              x2={sourceNotationX + Math.cos(angle) * 15}
-              y2={sourceNotationY + Math.sin(angle) * 15}
+              x2={sourceNotationX + 15}
+              y2={sourceNotationY}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
@@ -277,8 +371,8 @@ export const Relation = ({
             <line
               x1={targetNotationX}
               y1={targetNotationY}
-              x2={targetNotationX - Math.cos(angle) * 15 - Math.sin(angle) * 8}
-              y2={targetNotationY - Math.sin(angle) * 15 + Math.cos(angle) * 8}
+              x2={targetNotationX - 15}
+              y2={targetNotationY - 8}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
@@ -286,8 +380,8 @@ export const Relation = ({
             <line
               x1={targetNotationX}
               y1={targetNotationY}
-              x2={targetNotationX - Math.cos(angle) * 15 + Math.sin(angle) * 8}
-              y2={targetNotationY - Math.sin(angle) * 15 - Math.cos(angle) * 8}
+              x2={targetNotationX - 15}
+              y2={targetNotationY + 8}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
@@ -295,8 +389,8 @@ export const Relation = ({
             <line
               x1={targetNotationX}
               y1={targetNotationY}
-              x2={targetNotationX - Math.cos(angle) * 15}
-              y2={targetNotationY - Math.sin(angle) * 15}
+              x2={targetNotationX - 15}
+              y2={targetNotationY}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
@@ -308,18 +402,37 @@ export const Relation = ({
   };
 
   return (
-    <g onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+    <g 
+      onMouseMove={handleMouseMove} 
+      onMouseUp={handleMouseUp}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setShowTooltip(false);
+      }}
+      className="pointer-events-auto"
+    >
       {/* Main path */}
       <path
         d={path}
         stroke={strokeColor}
         strokeWidth={strokeWidth}
         fill="none"
-        className="cursor-pointer"
+        className="cursor-pointer transition-all duration-200"
         pointerEvents="stroke"
         vectorEffect="non-scaling-stroke"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         onClick={(e) => {
           e.stopPropagation();
+          const svg = (e.target as SVGElement).closest('svg');
+          if (svg) {
+            const pt = svg.createSVGPoint();
+            pt.x = e.clientX;
+            pt.y = e.clientY;
+            const svgP = pt.matrixTransform(svg.getScreenCTM()?.inverse());
+            setTooltipPosition({ x: svgP.x, y: svgP.y });
+          }
+          setShowTooltip(true);
           onSelect();
         }}
       />
@@ -327,30 +440,54 @@ export const Relation = ({
       {/* Relationship notation */}
       {renderNotation()}
       
-      {/* Waypoint handles */}
-      {isSelected && onUpdate && waypoints.map((wp, index) => (
+      {/* Waypoint handles - only in manual mode */}
+      {isSelected && onUpdate && (relation.routingMode || globalRoutingMode) === 'manual' && waypoints.map((wp, index) => (
         <g key={index}>
           <circle
             cx={wp.x}
             cy={wp.y}
-            r={6 / scale}
-            fill="hsl(var(--accent))"
+            r={8 / scale}
+            fill="#3B82F6"
             stroke="white"
             strokeWidth={2 / scale}
-            className="cursor-move"
+            className="cursor-move hover:fill-blue-600"
             onMouseDown={(e) => handleMouseDown(e, index)}
           />
+          <text
+            x={wp.x}
+            y={wp.y + 2 / scale}
+            textAnchor="middle"
+            fontSize={`${10 / scale}px`}
+            fill="white"
+            fontWeight="bold"
+            className="pointer-events-none select-none"
+          >
+            {index + 1}
+          </text>
           <circle
-            cx={wp.x + 12 / scale}
-            cy={wp.y - 12 / scale}
-            r={4 / scale}
-            fill="hsl(var(--destructive))"
-            className="cursor-pointer"
+            cx={wp.x + 15 / scale}
+            cy={wp.y - 15 / scale}
+            r={6 / scale}
+            fill="#EF4444"
+            stroke="white"
+            strokeWidth={1 / scale}
+            className="cursor-pointer hover:fill-red-600"
             onClick={(e) => {
               e.stopPropagation();
               handleRemoveWaypoint(index);
             }}
           />
+          <text
+            x={wp.x + 15 / scale}
+            y={wp.y - 12 / scale}
+            textAnchor="middle"
+            fontSize={`${8 / scale}px`}
+            fill="white"
+            fontWeight="bold"
+            className="pointer-events-none select-none"
+          >
+            ×
+          </text>
         </g>
       ))}
       
@@ -462,14 +599,30 @@ export const Relation = ({
                         </SelectContent>
                       </Select>
                     </div>
+                    
+                    <div>
+                      <Label htmlFor="routing-mode">Routing Mode</Label>
+                      <Select
+                        value={relation.routingMode || 'auto'}
+                        onValueChange={(value: 'auto' | 'manual') => updateRelation({ routingMode: value })}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Automatic</SelectItem>
+                          <SelectItem value="manual">Manual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </PopoverContent>
               </Popover>
             </foreignObject>
           )}
           
-          {/* Add waypoint button */}
-          {onUpdate && (
+          {/* Add waypoint button - only in manual mode */}
+          {onUpdate && (relation.routingMode || globalRoutingMode) === 'manual' && (
             <foreignObject
               x={midX - 40}
               y={midY - 12}
@@ -488,6 +641,59 @@ export const Relation = ({
             </foreignObject>
           )}
         </>
+      )}
+      
+      {/* Tooltip */}
+      {showTooltip && (
+        <g>
+          <circle
+            cx={tooltipPosition.x - 15}
+            cy={tooltipPosition.y}
+            r="12"
+            fill="white"
+            stroke="#d1d5db"
+            strokeWidth="1"
+            className="cursor-pointer hover:fill-gray-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTooltip(false);
+              setShowSettings(true);
+            }}
+          />
+          <foreignObject
+            x={tooltipPosition.x - 21}
+            y={tooltipPosition.y - 6}
+            width="12"
+            height="12"
+            className="pointer-events-none"
+          >
+            <Settings className="h-3 w-3 text-gray-600" />
+          </foreignObject>
+          
+          <circle
+            cx={tooltipPosition.x + 15}
+            cy={tooltipPosition.y}
+            r="12"
+            fill="white"
+            stroke="#d1d5db"
+            strokeWidth="1"
+            className="cursor-pointer hover:fill-red-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowTooltip(false);
+              onDelete();
+            }}
+          />
+          <foreignObject
+            x={tooltipPosition.x + 9}
+            y={tooltipPosition.y - 6}
+            width="12"
+            height="12"
+            className="pointer-events-none"
+          >
+            <X className="h-3 w-3 text-red-600" />
+          </foreignObject>
+        </g>
       )}
     </g>
   );
