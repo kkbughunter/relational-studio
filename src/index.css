@@ -38,8 +38,8 @@ All colors MUST be HSL.
 
     --radius: 0.5rem;
 
-    --canvas: 0 0% 100%;
-    --canvas-grid: 220 13% 96%;
+    --canvas: 0 0% 98%;
+    --canvas-grid: 220 13% 91%;
     
     --entity-border: 220 13% 85%;
     --entity-header: 220 90% 56%;
@@ -113,7 +113,18 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  body {
+  html, body {
     @apply bg-background text-foreground;
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  #root {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
   }
 }

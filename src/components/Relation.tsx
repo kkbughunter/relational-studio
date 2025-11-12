@@ -1,145 +1,88 @@
-import { useState } from "react";
-import { EntityData } from "./Entity";
-import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { X, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Table, Relation as RelationType, RELATIONSHIP_ACTIONS } from '@/types/schema';
 
-export type RelationshipType = "one-to-one" | "one-to-many" | "many-to-many";
-
-export interface RelationshipData {
-  id: string;
-  sourceEntityId: string;
-  targetEntityId: string;
-  type: RelationshipType;
-  sourceAttributeId?: string;
-  targetAttributeId?: string;
-  sourceAnchor?: { side: 'top' | 'right' | 'bottom' | 'left'; offset?: number };
-  targetAnchor?: { side: 'top' | 'right' | 'bottom' | 'left'; offset?: number };
-  waypoints?: Array<{ x: number; y: number }>;
-}
-
-interface RelationshipProps {
-  relationship: RelationshipData;
-  sourceEntity: EntityData;
-  targetEntity: EntityData;
+interface RelationProps {
+  relation: RelationType;
+  sourceTable: Table;
+  targetTable: Table;
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
-  onUpdate?: (relationship: RelationshipData) => void;
+  onUpdate?: (relation: RelationType) => void;
   scale?: number;
 }
 
-export const Relationship = ({
-  relationship,
-  sourceEntity,
-  targetEntity,
+export const Relation = ({
+  relation,
+  sourceTable,
+  targetTable,
   isSelected,
   onSelect,
   onDelete,
   onUpdate,
   scale = 1,
-}: RelationshipProps) => {
-  const strokeColor = isSelected ? "hsl(var(--primary))" : "hsl(var(--entity-header))";
-
-  // Local drag state for endpoints and optional intermediate waypoints
+}: RelationProps) => {
+  const [showSettings, setShowSettings] = useState(false);
   const [draggingHandle, setDraggingHandle] = useState<'source' | 'target' | number | null>(null);
-  const [tempWaypoints, setTempWaypoints] = useState<Array<{ x: number; y: number }>>(relationship.waypoints || []);
+  const [tempWaypoints, setTempWaypoints] = useState<Array<{ x: number; y: number }>>(relation.waypoints || []);
 
-  // Compute an anchor point on an entity box by side and offset (0..1)
+  const strokeColor = isSelected ? 'hsl(var(--primary))' : '#6B7280';
+  const strokeWidth = isSelected ? 3 : 2;
+
+  // Calculate anchor points
   const getAnchorPoint = (
-    entity: EntityData,
+    table: Table,
     anchor?: { side: 'top' | 'right' | 'bottom' | 'left'; offset?: number }
   ) => {
-    const width = 250;
-    const height = 100;
+    const width = 280;
+    const height = Math.max(120, 60 + table.columns.length * 32);
     const offset = anchor?.offset ?? 0.5;
+    
     if (!anchor) {
-      return { x: entity.x + width / 2, y: entity.y + height / 2 };
+      return { x: table.position.x + width / 2, y: table.position.y + height / 2 };
     }
+    
     switch (anchor.side) {
       case 'top':
-        return { x: entity.x + width * offset, y: entity.y };
+        return { x: table.position.x + width * offset, y: table.position.y };
       case 'bottom':
-        return { x: entity.x + width * offset, y: entity.y + height };
+        return { x: table.position.x + width * offset, y: table.position.y + height };
       case 'left':
-        return { x: entity.x, y: entity.y + height * offset };
+        return { x: table.position.x, y: table.position.y + height * offset };
       case 'right':
-        return { x: entity.x + width, y: entity.y + height * offset };
+        return { x: table.position.x + width, y: table.position.y + height * offset };
     }
   };
 
-  // Choose a reasonable edge point if no explicit anchor is set
-  const calculateEdgePoint = (
-    fromEntity: EntityData,
-    toEntity: EntityData,
-    customAnchor?: { side: 'top' | 'right' | 'bottom' | 'left'; offset?: number }
-  ) => {
-    // If a custom anchor is provided, respect it. Otherwise, default to the TOP edge centered.
-    if (customAnchor) return getAnchorPoint(fromEntity, customAnchor);
-    return getAnchorPoint(fromEntity, { side: 'top', offset: 0.5 });
-
-    // Unreachable, but keeps function explicit if default handling changes later
-    // return { x: fromEntity.x + 125, y: fromEntity.y + 50 };
-  };
-  // Calculate anchor points. If attribute anchors exist, connect to them; else connect entity centers.
-  const sourceAnchorEl = relationship.sourceAttributeId
-    ? document.getElementById(`attr-anchor-${relationship.sourceEntityId}-${relationship.sourceAttributeId}`)
-    : null;
-  const targetAnchorEl = relationship.targetAttributeId
-    ? document.getElementById(`attr-anchor-${relationship.targetEntityId}-${relationship.targetAttributeId}`)
-    : null;
-
-  let sourcePoint = calculateEdgePoint(sourceEntity, targetEntity, relationship.sourceAnchor);
-  let targetPoint = calculateEdgePoint(targetEntity, sourceEntity, relationship.targetAnchor);
-
-  // Override with attribute anchors if they exist
-  if (sourceAnchorEl) {
-    const rect = sourceAnchorEl.getBoundingClientRect();
-    const inner = sourceAnchorEl.closest('[data-canvas-inner="true"]') as HTMLElement | null;
-    if (inner) {
-      const innerRect = inner.getBoundingClientRect();
-      sourcePoint = {
-        x: (rect.left - innerRect.left) / scale,
-        y: (rect.top - innerRect.top) / scale,
-      };
-    }
-  }
-  if (targetAnchorEl) {
-    const rect = targetAnchorEl.getBoundingClientRect();
-    const inner = targetAnchorEl.closest('[data-canvas-inner="true"]') as HTMLElement | null;
-    if (inner) {
-      const innerRect = inner.getBoundingClientRect();
-      targetPoint = {
-        x: (rect.left - innerRect.left) / scale,
-        y: (rect.top - innerRect.top) / scale,
-      };
-    }
-  }
-
-  const sourceX = sourcePoint.x;
-  const sourceY = sourcePoint.y;
-  const targetX = targetPoint.x;
-  const targetY = targetPoint.y;
+  const sourcePoint = getAnchorPoint(sourceTable, relation.sourceAnchor);
+  const targetPoint = getAnchorPoint(targetTable, relation.targetAnchor);
 
   // Use waypoints if they exist
-  const waypoints = (tempWaypoints.length > 0 ? tempWaypoints : (relationship.waypoints || []));
+  const waypoints = tempWaypoints.length > 0 ? tempWaypoints : (relation.waypoints || []);
 
-  // Calculate midpoint for the delete button and add waypoint button
+  // Calculate midpoint for controls
   let midX, midY;
   if (waypoints.length > 0) {
     const midIndex = Math.floor(waypoints.length / 2);
     midX = waypoints[midIndex].x;
     midY = waypoints[midIndex].y;
   } else {
-    midX = (sourceX + targetX) / 2;
-    midY = (sourceY + targetY) / 2;
+    midX = (sourcePoint.x + targetPoint.x) / 2;
+    midY = (sourcePoint.y + targetPoint.y) / 2;
   }
 
   // Create path with waypoints
-  let path = `M ${sourceX} ${sourceY}`;
+  let path = `M ${sourcePoint.x} ${sourcePoint.y}`;
   waypoints.forEach(wp => {
     path += ` L ${wp.x} ${wp.y}`;
   });
-  path += ` L ${targetX} ${targetY}`;
+  path += ` L ${targetPoint.x} ${targetPoint.y}`;
 
   // Handle dragging
   const handleMouseDown = (e: React.MouseEvent, type: 'source' | 'target' | number) => {
@@ -158,44 +101,7 @@ export const Relationship = ({
     pt.y = e.clientY;
     const svgP = pt.matrixTransform(svg.getScreenCTM()?.inverse());
     
-    if (draggingHandle === 'source' || draggingHandle === 'target') {
-      const entity = draggingHandle === 'source' ? sourceEntity : targetEntity;
-      const width = 250;
-      const height = 100;
-      
-      // Determine which side and offset
-      const relX = svgP.x - entity.x;
-      const relY = svgP.y - entity.y;
-      
-      let side: 'top' | 'right' | 'bottom' | 'left';
-      let offset: number;
-      
-      const distToTop = Math.abs(relY);
-      const distToBottom = Math.abs(relY - height);
-      const distToLeft = Math.abs(relX);
-      const distToRight = Math.abs(relX - width);
-      
-      const minDist = Math.min(distToTop, distToBottom, distToLeft, distToRight);
-      
-      if (minDist === distToTop) {
-        side = 'top';
-        offset = Math.max(0, Math.min(1, relX / width));
-      } else if (minDist === distToBottom) {
-        side = 'bottom';
-        offset = Math.max(0, Math.min(1, relX / width));
-      } else if (minDist === distToLeft) {
-        side = 'left';
-        offset = Math.max(0, Math.min(1, relY / height));
-      } else {
-        side = 'right';
-        offset = Math.max(0, Math.min(1, relY / height));
-      }
-      
-      onUpdate({
-        ...relationship,
-        [draggingHandle === 'source' ? 'sourceAnchor' : 'targetAnchor']: { side, offset }
-      });
-    } else if (typeof draggingHandle === 'number') {
+    if (typeof draggingHandle === 'number') {
       const newWaypoints = [...waypoints];
       newWaypoints[draggingHandle] = { x: svgP.x, y: svgP.y };
       setTempWaypoints(newWaypoints);
@@ -205,7 +111,7 @@ export const Relationship = ({
   const handleMouseUp = () => {
     if (draggingHandle !== null && typeof draggingHandle === 'number' && onUpdate) {
       onUpdate({
-        ...relationship,
+        ...relation,
         waypoints: tempWaypoints
       });
     }
@@ -219,7 +125,7 @@ export const Relationship = ({
     const newWaypoints = [...waypoints, { x: midX, y: midY }];
     setTempWaypoints(newWaypoints);
     onUpdate({
-      ...relationship,
+      ...relation,
       waypoints: newWaypoints
     });
   };
@@ -229,25 +135,30 @@ export const Relationship = ({
     const newWaypoints = waypoints.filter((_, i) => i !== index);
     setTempWaypoints(newWaypoints);
     onUpdate({
-      ...relationship,
+      ...relation,
       waypoints: newWaypoints
     });
   };
 
-  // Render different notations based on relationship type
+  const updateRelation = (updates: Partial<RelationType>) => {
+    if (onUpdate) {
+      onUpdate({ ...relation, ...updates });
+    }
+  };
+
+  // Render relationship notation
   const renderNotation = () => {
-    const angle = Math.atan2(targetY - sourceY, targetX - sourceX);
-    const distance = Math.sqrt(Math.pow(targetX - sourceX, 2) + Math.pow(targetY - sourceY, 2));
+    const angle = Math.atan2(targetPoint.y - sourcePoint.y, targetPoint.x - sourcePoint.x);
     
-    // Source side notation (always "many" or "one")
-    const sourceNotationX = sourceX + Math.cos(angle) * 30;
-    const sourceNotationY = sourceY + Math.sin(angle) * 30;
+    // Source side notation
+    const sourceNotationX = sourcePoint.x + Math.cos(angle) * 30;
+    const sourceNotationY = sourcePoint.y + Math.sin(angle) * 30;
     
     // Target side notation
-    const targetNotationX = targetX - Math.cos(angle) * 30;
-    const targetNotationY = targetY - Math.sin(angle) * 30;
+    const targetNotationX = targetPoint.x - Math.cos(angle) * 30;
+    const targetNotationY = targetPoint.y - Math.sin(angle) * 30;
 
-    if (relationship.type === "one-to-one") {
+    if (relation.type === '1:1') {
       return (
         <>
           {/* One side at source */}
@@ -272,7 +183,7 @@ export const Relationship = ({
           />
         </>
       );
-    } else if (relationship.type === "one-to-many") {
+    } else if (relation.type === '1:N') {
       return (
         <>
           {/* One side at source */}
@@ -317,10 +228,10 @@ export const Relationship = ({
           </g>
         </>
       );
-    } else if (relationship.type === "many-to-many") {
+    } else if (relation.type === 'N:M') {
       return (
         <>
-          {/* Many side at source (crow's foot) */}
+          {/* Many side at source */}
           <g>
             <line
               x1={sourceNotationX}
@@ -350,7 +261,7 @@ export const Relationship = ({
               vectorEffect="non-scaling-stroke"
             />
           </g>
-          {/* Many side at target (crow's foot) */}
+          {/* Many side at target */}
           <g>
             <line
               x1={targetNotationX}
@@ -387,79 +298,52 @@ export const Relationship = ({
 
   return (
     <g onMouseMove={handleMouseMove} onMouseUp={handleMouseUp}>
+      {/* Main path */}
       <path
         d={path}
         stroke={strokeColor}
-        strokeWidth={isSelected ? "3" : "2"}
+        strokeWidth={strokeWidth}
         fill="none"
         className="cursor-pointer"
         pointerEvents="stroke"
         vectorEffect="non-scaling-stroke"
-        markerEnd="url(#arrowhead)"
         onClick={(e) => {
           e.stopPropagation();
           onSelect();
         }}
       />
+      
+      {/* Relationship notation */}
       {renderNotation()}
       
-      {/* Connection handles for alignment */}
-      {isSelected && onUpdate && (
-        <>
-          {/* Source handle */}
+      {/* Waypoint handles */}
+      {isSelected && onUpdate && waypoints.map((wp, index) => (
+        <g key={index}>
           <circle
-            cx={sourceX}
-            cy={sourceY}
+            cx={wp.x}
+            cy={wp.y}
             r={6 / scale}
-            fill="hsl(var(--primary))"
+            fill="hsl(var(--accent))"
             stroke="white"
             strokeWidth={2 / scale}
             className="cursor-move"
-            onMouseDown={(e) => handleMouseDown(e, 'source')}
+            onMouseDown={(e) => handleMouseDown(e, index)}
           />
-          
-          {/* Target handle */}
           <circle
-            cx={targetX}
-            cy={targetY}
-            r={6 / scale}
-            fill="hsl(var(--primary))"
-            stroke="white"
-            strokeWidth={2 / scale}
-            className="cursor-move"
-            onMouseDown={(e) => handleMouseDown(e, 'target')}
+            cx={wp.x + 12 / scale}
+            cy={wp.y - 12 / scale}
+            r={4 / scale}
+            fill="hsl(var(--destructive))"
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRemoveWaypoint(index);
+            }}
           />
-          
-          {/* Waypoint handles */}
-          {waypoints.map((wp, index) => (
-            <g key={index}>
-              <circle
-                cx={wp.x}
-                cy={wp.y}
-                r={6 / scale}
-                fill="hsl(var(--accent))"
-                stroke="white"
-                strokeWidth={2 / scale}
-                className="cursor-move"
-                onMouseDown={(e) => handleMouseDown(e, index)}
-              />
-              {/* Remove waypoint button */}
-              <circle
-                cx={wp.x + 12 / scale}
-                cy={wp.y - 12 / scale}
-                r={4 / scale}
-                fill="hsl(var(--destructive))"
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemoveWaypoint(index);
-                }}
-              />
-            </g>
-          ))}
-        </>
-      )}
+        </g>
+      ))}
       
+      {/* Controls when selected */}
       {isSelected && (
         <>
           {/* Delete button */}
@@ -482,7 +366,7 @@ export const Relationship = ({
             </Button>
           </foreignObject>
           
-          {/* Add waypoint button */}
+          {/* Settings button */}
           {onUpdate && (
             <foreignObject
               x={midX + 16}
@@ -490,8 +374,99 @@ export const Relationship = ({
               width="24"
               height="24"
             >
+              <Popover open={showSettings} onOpenChange={setShowSettings}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="h-6 w-6 p-0 rounded-full"
+                  >
+                    <Settings className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" onClick={(e) => e.stopPropagation()}>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="relation-name">Relationship Name</Label>
+                      <Input
+                        id="relation-name"
+                        value={relation.name || ''}
+                        onChange={(e) => updateRelation({ name: e.target.value })}
+                        placeholder="Optional relationship name"
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="relation-type">Type</Label>
+                      <Select
+                        value={relation.type}
+                        onValueChange={(value: '1:1' | '1:N' | 'N:M') => updateRelation({ type: value })}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1:1">One-to-One (1:1)</SelectItem>
+                          <SelectItem value="1:N">One-to-Many (1:N)</SelectItem>
+                          <SelectItem value="N:M">Many-to-Many (N:M)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="on-delete">On Delete</Label>
+                      <Select
+                        value={relation.onDelete}
+                        onValueChange={(value: typeof relation.onDelete) => updateRelation({ onDelete: value })}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RELATIONSHIP_ACTIONS.map((action) => (
+                            <SelectItem key={action} value={action}>
+                              {action}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="on-update">On Update</Label>
+                      <Select
+                        value={relation.onUpdate}
+                        onValueChange={(value: typeof relation.onUpdate) => updateRelation({ onUpdate: value })}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RELATIONSHIP_ACTIONS.map((action) => (
+                            <SelectItem key={action} value={action}>
+                              {action}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </foreignObject>
+          )}
+          
+          {/* Add waypoint button */}
+          {onUpdate && (
+            <foreignObject
+              x={midX - 40}
+              y={midY - 12}
+              width="24"
+              height="24"
+            >
               <Button
-                variant="secondary"
+                variant="outline"
                 size="sm"
                 onClick={handleAddWaypoint}
                 className="h-6 w-6 p-0 rounded-full"
