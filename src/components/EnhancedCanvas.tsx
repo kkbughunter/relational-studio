@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table } from './Table';
 import { Relation } from './Relation';
+import { RelationshipDialog } from './RelationshipDialog';
 import { useSchemaStore } from '@/store/useSchemaStore';
 import { Table as TableType, Relation as RelationType, DatabaseType } from '@/types/schema';
 
@@ -32,10 +33,13 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
   } = useSchemaStore();
 
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [pendingRelationSource, setPendingRelationSource] = useState<{
-    tableId: string;
-    columnId?: string;
+  const [pendingRelation, setPendingRelation] = useState<{
+    sourceTableId: string;
+    sourceColumnId: string;
+    targetTableId?: string;
+    targetColumnId?: string;
   } | null>(null);
+  const [showRelationDialog, setShowRelationDialog] = useState(false);
   const [isSpaceDown, setIsSpaceDown] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
@@ -99,7 +103,7 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
     if (!clickedTable) {
       setSelectedTable(null);
       setSelectedRelation(null);
-      setPendingRelationSource(null);
+      setPendingRelation(null);
     }
   };
 
@@ -112,62 +116,51 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
     };
   };
 
-  const handleTableClickForRelation = (tableId: string) => {
-    if (selectedTool === 'relation') {
-      if (!pendingRelationSource) {
-        setPendingRelationSource({ tableId });
-        setSelectedTable(tableId);
-      } else if (pendingRelationSource.tableId !== tableId) {
-        createRelation(pendingRelationSource.tableId, tableId);
-        setPendingRelationSource(null);
-        setSelectedTable(null);
+  const handleTableClick = (tableId: string) => {
+    setSelectedTable(tableId);
+  };
+
+  const handleColumnClick = (columnId: string, tableId: string) => {
+    if (!pendingRelation) {
+      setPendingRelation({
+        sourceTableId: tableId,
+        sourceColumnId: columnId,
+      });
+    } else if (pendingRelation.sourceTableId !== tableId || pendingRelation.sourceColumnId !== columnId) {
+      const sourceTable = tables.find(t => t.id === pendingRelation.sourceTableId);
+      const targetTable = tables.find(t => t.id === tableId);
+      const sourceColumn = sourceTable?.columns.find(c => c.id === pendingRelation.sourceColumnId);
+      const targetColumn = targetTable?.columns.find(c => c.id === columnId);
+      
+      if (sourceTable && targetTable && sourceColumn && targetColumn) {
+        setPendingRelation({
+          ...pendingRelation,
+          targetTableId: tableId,
+          targetColumnId: columnId,
+        });
+        setShowRelationDialog(true);
       }
     } else {
-      setSelectedTable(tableId);
+      setPendingRelation(null);
     }
   };
 
-  const handleColumnClickForRelation = (tableId: string, columnId: string) => {
-    if (selectedTool !== 'relation') return;
+  const createRelation = (type: '1:1' | '1:N' | 'N:M') => {
+    if (!pendingRelation?.targetTableId || !pendingRelation?.targetColumnId || !pendingRelation?.sourceColumnId) return;
     
-    if (!pendingRelationSource) {
-      setPendingRelationSource({ tableId, columnId });
-      setSelectedTable(tableId);
-      return;
-    }
-    
-    if (pendingRelationSource.tableId === tableId && pendingRelationSource.columnId === columnId) {
-      return;
-    }
-    
-    createRelation(
-      pendingRelationSource.tableId,
-      tableId,
-      pendingRelationSource.columnId,
-      columnId
-    );
-    setPendingRelationSource(null);
-    setSelectedTable(null);
-  };
-
-  const createRelation = (
-    sourceTableId: string,
-    targetTableId: string,
-    sourceColumnId?: string,
-    targetColumnId?: string
-  ) => {
     const newRelation: RelationType = {
       id: `rel-${Date.now()}`,
-      fromTableId: sourceTableId,
-      toTableId: targetTableId,
-      fromColumnId: sourceColumnId || '',
-      toColumnId: targetColumnId || '',
-      type: relationshipType,
+      fromTableId: pendingRelation.sourceTableId,
+      toTableId: pendingRelation.targetTableId,
+      fromColumnId: pendingRelation.sourceColumnId,
+      toColumnId: pendingRelation.targetColumnId,
+      type,
       onDelete: 'NO ACTION',
       onUpdate: 'NO ACTION',
     };
     
     addRelation(newRelation);
+    setPendingRelation(null);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -275,7 +268,7 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
       >
           <div
             data-canvas-inner="true"
-            className="absolute inset-0 w-full h-full"
+            className="absolute inset-0 w-full h-full pointer-events-none"
             style={{
               transform: `translate(${canvasOffset.x}px, ${canvasOffset.y}px) scale(${canvasScale})`,
               transformOrigin: '0 0',
@@ -316,24 +309,73 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
                   </g>
                 );
               })}
+              
+              {/* Pending connection line */}
+              {pendingRelation && !pendingRelation.targetTableId && (
+                <line
+                  x1={0}
+                  y1={0}
+                  x2={0}
+                  y2={0}
+                  stroke="#3B82F6"
+                  strokeWidth="2"
+                  strokeDasharray="5,5"
+                  className="pointer-events-none"
+                  ref={(line) => {
+                    if (line && pendingRelation) {
+                      const sourceTable = tables.find(t => t.id === pendingRelation.sourceTableId);
+                      const sourceColumn = sourceTable?.columns.find(c => c.id === pendingRelation.sourceColumnId);
+                      if (sourceTable && sourceColumn) {
+                        const columnIndex = sourceTable.columns.findIndex(c => c.id === sourceColumn.id);
+                        const sourceY = sourceTable.position.y + 60 + (columnIndex * 32) + 16;
+                        const sourceX = sourceTable.position.x + 280;
+                        line.setAttribute('x1', sourceX.toString());
+                        line.setAttribute('y1', sourceY.toString());
+                        
+                        const handleMouseMove = (e: MouseEvent) => {
+                          const rect = canvasRef.current?.getBoundingClientRect();
+                          if (rect) {
+                            const worldX = (e.clientX - rect.left - canvasOffset.x) / canvasScale;
+                            const worldY = (e.clientY - rect.top - canvasOffset.y) / canvasScale;
+                            line.setAttribute('x2', worldX.toString());
+                            line.setAttribute('y2', worldY.toString());
+                          }
+                        };
+                        
+                        document.addEventListener('mousemove', handleMouseMove);
+                        return () => document.removeEventListener('mousemove', handleMouseMove);
+                      }
+                    }
+                  }}
+                />
+              )}
             </svg>
 
-            {tables.map((table) => (
-              <Table
-                key={table.id}
-                table={table}
-                isSelected={
-                  table.id === selectedTableId ||
-                  (selectedTool === 'relation' && table.id === pendingRelationSource?.tableId)
-                }
-                databaseType={databaseType}
-                onSelect={() => handleTableClickForRelation(table.id)}
-                onUpdate={updateTable}
-                onDelete={() => deleteTable(table.id)}
-                getWorldFromClient={clientToWorld}
-                onColumnClick={(columnId) => handleColumnClickForRelation(table.id, columnId)}
-              />
-            ))}
+            {tables.map((table) => {
+              const connectedColumns = relations
+                .filter(rel => rel.fromTableId === table.id || rel.toTableId === table.id)
+                .map(rel => rel.fromTableId === table.id ? rel.fromColumnId : rel.toColumnId)
+                .filter(Boolean);
+              
+              return (
+                <div key={table.id} className="pointer-events-auto">
+                  <Table
+                    table={table}
+                    isSelected={
+                      table.id === selectedTableId ||
+                      table.id === pendingRelation?.sourceTableId
+                    }
+                    databaseType={databaseType}
+                    onSelect={() => handleTableClick(table.id)}
+                    onUpdate={updateTable}
+                    onDelete={() => deleteTable(table.id)}
+                    getWorldFromClient={clientToWorld}
+                    onColumnClick={handleColumnClick}
+                    connectedColumns={connectedColumns}
+                  />
+                </div>
+              );
+            })}
           </div>
 
           {tables.length === 0 && (
@@ -342,7 +384,7 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
                 <p className="text-lg font-medium mb-2">
                   Click "Table" and then click on the canvas to add tables
                 </p>
-                <p className="text-sm mb-2">Use the Relation tool to connect tables</p>
+                <p className="text-sm mb-2">Click column connection points to create relationships</p>
                 <p className="text-xs text-gray-400">
                   Mouse wheel to zoom • Drag to pan
                 </p>
@@ -350,9 +392,9 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
             </div>
           )}
 
-          {pendingRelationSource && (
+          {pendingRelation && !pendingRelation.targetTableId && (
             <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg pointer-events-none z-50">
-              Click on a table or column to complete the relationship
+              Click on another column to create relationship
             </div>
           )}
       </div>
@@ -377,6 +419,21 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
         <div>Space+Drag: Pan view</div>
         <div>Drag: Pan view</div>
       </div>
+      
+      {pendingRelation?.targetTableId && (
+        <RelationshipDialog
+          isOpen={showRelationDialog}
+          onClose={() => {
+            setShowRelationDialog(false);
+            setPendingRelation(null);
+          }}
+          onSelect={createRelation}
+          sourceTable={tables.find(t => t.id === pendingRelation.sourceTableId)?.name || ''}
+          targetTable={tables.find(t => t.id === pendingRelation.targetTableId)?.name || ''}
+          sourceColumn={tables.find(t => t.id === pendingRelation.sourceTableId)?.columns.find(c => c.id === pendingRelation.sourceColumnId)?.name || ''}
+          targetColumn={tables.find(t => t.id === pendingRelation.targetTableId)?.columns.find(c => c.id === pendingRelation.targetColumnId)?.name || ''}
+        />
+      )}
     </div>
   );
 };

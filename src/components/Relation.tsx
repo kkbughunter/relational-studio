@@ -35,33 +35,44 @@ export const Relation = ({
   const strokeColor = isSelected ? 'hsl(var(--primary))' : '#6B7280';
   const strokeWidth = isSelected ? 3 : 2;
 
-  // Calculate anchor points
-  const getAnchorPoint = (
-    table: Table,
-    anchor?: { side: 'top' | 'right' | 'bottom' | 'left'; offset?: number }
-  ) => {
+  // Calculate column-specific anchor points
+  const getColumnAnchorPoint = (table: Table, columnId: string) => {
     const width = 280;
-    const height = Math.max(120, 60 + table.columns.length * 32);
-    const offset = anchor?.offset ?? 0.5;
+    const headerHeight = 60;
+    const columnHeight = 32;
     
-    if (!anchor) {
+    const columnIndex = table.columns.findIndex(col => col.id === columnId);
+    if (columnIndex === -1) {
+      // Fallback to table center if column not found
+      const height = Math.max(120, headerHeight + table.columns.length * columnHeight);
       return { x: table.position.x + width / 2, y: table.position.y + height / 2 };
     }
     
-    switch (anchor.side) {
-      case 'top':
-        return { x: table.position.x + width * offset, y: table.position.y };
-      case 'bottom':
-        return { x: table.position.x + width * offset, y: table.position.y + height };
-      case 'left':
-        return { x: table.position.x, y: table.position.y + height * offset };
-      case 'right':
-        return { x: table.position.x + width, y: table.position.y + height * offset };
+    const columnY = table.position.y + headerHeight + (columnIndex * columnHeight) + (columnHeight / 2);
+    
+    // Determine which side to connect from based on table positions
+    const sourceCenter = { x: sourceTable.position.x + width / 2, y: sourceTable.position.y + headerHeight / 2 };
+    const targetCenter = { x: targetTable.position.x + width / 2, y: targetTable.position.y + headerHeight / 2 };
+    
+    if (table === sourceTable) {
+      // Connect from right side if target is to the right, otherwise from left
+      const connectFromRight = targetCenter.x > sourceCenter.x;
+      return {
+        x: table.position.x + (connectFromRight ? width : 0),
+        y: columnY
+      };
+    } else {
+      // Connect from left side if source is to the left, otherwise from right
+      const connectFromLeft = sourceCenter.x < targetCenter.x;
+      return {
+        x: table.position.x + (connectFromLeft ? 0 : width),
+        y: columnY
+      };
     }
   };
 
-  const sourcePoint = getAnchorPoint(sourceTable, relation.sourceAnchor);
-  const targetPoint = getAnchorPoint(targetTable, relation.targetAnchor);
+  const sourcePoint = getColumnAnchorPoint(sourceTable, relation.fromColumnId);
+  const targetPoint = getColumnAnchorPoint(targetTable, relation.toColumnId);
 
   // Use waypoints if they exist
   const waypoints = tempWaypoints.length > 0 ? tempWaypoints : (relation.waypoints || []);

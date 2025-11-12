@@ -12,7 +12,7 @@ interface SchemaState {
   // UI state
   selectedTableId: string | null;
   selectedRelationId: string | null;
-  selectedTool: 'select' | 'table' | 'relation';
+  selectedTool: 'select' | 'table';
   relationshipType: '1:1' | '1:N' | 'N:M';
   
   // Canvas state
@@ -39,10 +39,12 @@ interface SchemaState {
   deleteRelation: (id: string) => void;
   setSelectedTable: (id: string | null) => void;
   setSelectedRelation: (id: string | null) => void;
-  setSelectedTool: (tool: 'select' | 'table' | 'relation') => void;
+  setSelectedTool: (tool: 'select' | 'table') => void;
   setRelationshipType: (type: '1:1' | '1:N' | 'N:M') => void;
   setCanvasOffset: (offset: { x: number; y: number }) => void;
   setCanvasScale: (scale: number) => void;
+  navigateToTable: (tableId: string) => void;
+  navigateToRelation: (relationId: string) => void;
   pushHistory: () => void;
   undo: () => void;
   redo: () => void;
@@ -139,6 +141,32 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   setCanvasOffset: (offset) => set({ canvasOffset: offset }),
 
   setCanvasScale: (scale) => set({ canvasScale: scale }),
+
+  navigateToTable: (tableId) => {
+    const { tables, setSelectedTable, setCanvasOffset, setCanvasScale } = get();
+    const table = tables.find(t => t.id === tableId);
+    if (table) {
+      setSelectedTable(tableId);
+      setCanvasScale(1);
+      setCanvasOffset({ x: -table.position.x + 200, y: -table.position.y + 200 });
+    }
+  },
+
+  navigateToRelation: (relationId) => {
+    const { tables, relations, setSelectedRelation, setCanvasOffset, setCanvasScale } = get();
+    const relation = relations.find(r => r.id === relationId);
+    if (relation) {
+      const sourceTable = tables.find(t => t.id === relation.fromTableId);
+      const targetTable = tables.find(t => t.id === relation.toTableId);
+      if (sourceTable && targetTable) {
+        setSelectedRelation(relationId);
+        setCanvasScale(1);
+        const centerX = (sourceTable.position.x + targetTable.position.x) / 2;
+        const centerY = (sourceTable.position.y + targetTable.position.y) / 2;
+        setCanvasOffset({ x: -centerX + 400, y: -centerY + 300 });
+      }
+    }
+  },
 
   pushHistory: () => {
     const { tables, relations, history, historyIndex } = get();

@@ -17,7 +17,8 @@ interface TableProps {
   onUpdate: (table: TableType) => void;
   onDelete: () => void;
   getWorldFromClient?: (x: number, y: number) => { x: number; y: number };
-  onColumnClick?: (columnId: string) => void;
+  onColumnClick?: (columnId: string, tableId: string) => void;
+  connectedColumns?: string[];
 }
 
 export const Table = ({ 
@@ -28,7 +29,8 @@ export const Table = ({
   onUpdate, 
   onDelete, 
   getWorldFromClient, 
-  onColumnClick 
+  onColumnClick,
+  connectedColumns = []
 }: TableProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -142,7 +144,7 @@ export const Table = ({
       ref={tableRef}
       id={`table-root-${table.id}`}
       data-table-root="true"
-      className={`absolute bg-white border-2 rounded-lg shadow-lg cursor-move select-none min-w-[280px] ${
+      className={`absolute bg-white border-2 rounded-lg shadow-lg cursor-move select-none w-[420px] ${
         isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-gray-300'
       }`}
       style={{
@@ -251,44 +253,72 @@ export const Table = ({
         {table.columns.map((column) => (
           <div
             key={column.id}
-            className="flex items-center gap-2 text-sm py-2 px-2 rounded hover:bg-gray-50 group relative border border-transparent hover:border-gray-200"
+            className="flex items-center gap-2 text-sm py-3 px-2 rounded hover:bg-gray-50 group relative border border-transparent hover:border-gray-200 min-h-[40px]"
             onClick={(e) => {
               e.stopPropagation();
-              if (onColumnClick) onColumnClick(column.id);
             }}
           >
-            <span
-              id={`col-anchor-${table.id}-${column.id}`}
-              className="absolute -left-2 top-1/2 -translate-y-1/2 w-0 h-0"
+            {table.position.x > 50 && (
+              <div
+                className={`absolute -left-3 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full cursor-pointer transition-all ${
+                  connectedColumns.includes(column.id)
+                    ? 'bg-green-500 hover:bg-green-600 opacity-100'
+                    : 'bg-blue-500 hover:bg-blue-600 opacity-0 group-hover:opacity-100'
+                }`}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (onColumnClick) onColumnClick(column.id, table.id);
+                }}
+                title={connectedColumns.includes(column.id) ? 'Connected column' : 'Click to connect to another column'}
+              />
+            )}
+            
+            <div
+              className={`absolute -right-3 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full cursor-pointer transition-all ${
+                connectedColumns.includes(column.id)
+                  ? 'bg-green-500 hover:bg-green-600 opacity-100'
+                  : 'bg-blue-500 hover:bg-blue-600 opacity-0 group-hover:opacity-100'
+              }`}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                if (onColumnClick) onColumnClick(column.id, table.id);
+              }}
+              title={connectedColumns.includes(column.id) ? 'Connected column' : 'Click to connect to another column'}
             />
             
-            <div className="flex items-center gap-1 w-4">
+            <div className="flex items-center gap-1 w-6 flex-shrink-0">
               {getColumnIcon(column)}
             </div>
             
-            <Input
-              value={column.name}
-              onChange={(e) => updateColumn(column.id, { name: e.target.value })}
-              className="h-7 flex-1 text-xs border-none bg-transparent hover:bg-white focus:bg-white"
-              placeholder="column name"
-              onClick={(e) => e.stopPropagation()}
-            />
+            <div className="w-32 flex-shrink-0">
+              <Input
+                value={column.name}
+                onChange={(e) => updateColumn(column.id, { name: e.target.value })}
+                className="h-8 w-full text-sm border border-gray-200 bg-white hover:border-gray-300 focus:border-blue-500"
+                placeholder="column name"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
             
-            <Select
-              value={column.type}
-              onValueChange={(value) => updateColumn(column.id, { type: value })}
-            >
-              <SelectTrigger className="h-7 w-32 text-xs border-none bg-transparent hover:bg-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableDataTypes.map((type) => (
-                  <SelectItem key={type} value={type} className="text-xs">
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="w-28 flex-shrink-0">
+              <Select
+                value={column.type}
+                onValueChange={(value) => updateColumn(column.id, { type: value })}
+              >
+                <SelectTrigger className="h-8 w-full text-sm border border-gray-200 bg-white hover:border-gray-300">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableDataTypes.map((type) => (
+                    <SelectItem key={type} value={type} className="text-sm">
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="flex items-center gap-1">
               <Button

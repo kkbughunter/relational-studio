@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Table2, GitBranch, Eye, EyeOff, Palette, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Table2, GitBranch, EyeOff, Palette, Info, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,9 +16,10 @@ export const Sidebar = () => {
     relations,
     selectedTableId,
     selectedRelationId,
-    setSelectedTable,
-    setSelectedRelation,
-    updateTable,
+    navigateToTable,
+    navigateToRelation,
+    deleteTable,
+    deleteRelation,
   } = useSchemaStore();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -55,16 +56,7 @@ export const Sidebar = () => {
     return `${sourceTable?.name || 'Unknown'} → ${targetTable?.name || 'Unknown'}`;
   };
 
-  const toggleTableVisibility = (tableId: string) => {
-    const table = tables.find(t => t.id === tableId);
-    if (table) {
-      updateTable({
-        ...table,
-        // Add a hidden property to the table type if needed
-        // For now, we'll use a simple approach
-      });
-    }
-  };
+
 
   if (isCollapsed) {
     return (
@@ -189,7 +181,7 @@ export const Sidebar = () => {
                         ? 'bg-blue-50 border-blue-200'
                         : 'bg-white border-gray-200 hover:bg-gray-50'
                     }`}
-                    onClick={() => setSelectedTable(table.id)}
+                    onClick={() => navigateToTable(table.id)}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -202,13 +194,14 @@ export const Sidebar = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 w-6 p-0"
+                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleTableVisibility(table.id);
+                          deleteTable(table.id);
                         }}
+                        title="Delete table"
                       >
-                        <Eye className="h-3 w-3" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
                     </div>
                     
@@ -303,12 +296,24 @@ export const Sidebar = () => {
                         ? 'bg-blue-50 border-blue-200'
                         : 'bg-white border-gray-200 hover:bg-gray-50'
                     }`}
-                    onClick={() => setSelectedRelation(relation.id)}
+                    onClick={() => navigateToRelation(relation.id)}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <Badge variant="outline" className="text-xs">
                         {relation.type}
                       </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteRelation(relation.id);
+                        }}
+                        title="Delete relation"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                     
                     <div className="text-sm font-medium text-gray-900 mb-1">

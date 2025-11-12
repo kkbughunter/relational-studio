@@ -152,12 +152,10 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
     toast.success('Canvas cleared');
   };
 
-  const handleToolChange = (tool: 'select' | 'table' | 'relation') => {
+  const handleToolChange = (tool: 'select' | 'table') => {
     setSelectedTool(tool);
     if (tool === 'table') {
       toast.info('Click on the canvas to add a table');
-    } else if (tool === 'relation') {
-      toast.info('Click on two tables to create a relationship');
     }
   };
 
@@ -214,48 +212,6 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
           <Square className="h-4 w-4" />
           Table
         </Button>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant={selectedTool === 'relation' ? 'default' : 'ghost'}
-              size="sm"
-              className="gap-2"
-            >
-              <GitBranch className="h-4 w-4" />
-              Relation ({getRelationshipLabel(relationshipType)})
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem
-              onClick={() => {
-                setRelationshipType('1:1');
-                handleToolChange('relation');
-              }}
-              className="cursor-pointer"
-            >
-              One-to-One (1:1)
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setRelationshipType('1:N');
-                handleToolChange('relation');
-              }}
-              className="cursor-pointer"
-            >
-              One-to-Many (1:N)
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setRelationshipType('N:M');
-                handleToolChange('relation');
-              }}
-              className="cursor-pointer"
-            >
-              Many-to-Many (N:M)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       <div className="h-6 w-px bg-gray-300" />
