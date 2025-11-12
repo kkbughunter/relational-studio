@@ -89,7 +89,7 @@ export const Sidebar = () => {
   }
 
   return (
-    <div className="w-80 bg-gray-50 border-r border-gray-200 flex flex-col flex-shrink-0">
+    <div className="w-72 bg-gray-50 border-r border-gray-200 flex flex-col flex-shrink-0">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
@@ -119,7 +119,7 @@ export const Sidebar = () => {
 
       {/* Content */}
       <ScrollArea className="flex-1 min-h-0">
-        <div className="p-4 space-y-4">
+        <div className="p-3 space-y-3">
           {/* Schema Minimap */}
           <SchemaMinimap />
           

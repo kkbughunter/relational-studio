@@ -59,11 +59,13 @@ export const Table = ({
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
         const world = getWorldFromClient ? getWorldFromClient(e.clientX, e.clientY) : { x: e.clientX, y: e.clientY };
+        const newX = Math.max(0, world.x - dragOffset.x);
+        const newY = Math.max(0, world.y - dragOffset.y);
         onUpdate({
           ...table,
           position: {
-            x: world.x - dragOffset.x,
-            y: world.y - dragOffset.y,
+            x: newX,
+            y: newY,
           },
         });
       }

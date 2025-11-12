@@ -477,11 +477,11 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
         </Button>
       </div>
       
-      <div className="absolute bottom-4 left-4 bg-white border border-gray-300 rounded-md shadow-lg px-3 py-2 z-50 text-xs text-gray-600">
+      {/* <div className="absolute bottom-4 left-4 bg-white border border-gray-300 rounded-md shadow-lg px-3 py-2 z-50 text-xs text-gray-600">
         <div>Mouse Wheel: Zoom in/out</div>
         <div>Space+Drag: Pan view</div>
         <div>Drag: Pan view</div>
-      </div>
+      </div> */}
       
       {pendingRelation?.targetTableId && (
         <RelationshipDialog
