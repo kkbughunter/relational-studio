@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Table2, GitBranch, Eye, EyeOff, Palette, Info, ChevronLeft, ChevronRight, Trash2, Edit2, Check, X } from 'lucide-react';
+import { Search, Table2, GitBranch, Eye, EyeOff, Palette, Info, ChevronLeft, ChevronRight, Trash2, Edit2, Check, X, Layers } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,12 +15,14 @@ export const Sidebar = () => {
   const {
     tables,
     relations,
+    groups,
     selectedTableId,
     selectedRelationId,
     navigateToTable,
     navigateToRelation,
     deleteTable,
     deleteRelation,
+    deleteGroup,
     updateTable,
     updateRelation,
   } = useSchemaStore();
@@ -28,6 +30,7 @@ export const Sidebar = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showTables, setShowTables] = useState(true);
   const [showRelations, setShowRelations] = useState(true);
+  const [showGroups, setShowGroups] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [editingTable, setEditingTable] = useState<string | null>(null);
   const [editingRelation, setEditingRelation] = useState<string | null>(null);
@@ -337,6 +340,86 @@ export const Sidebar = () => {
               {filteredTables.length === 0 && (
                 <div className="text-center text-gray-500 text-sm py-4">
                   {searchTerm ? 'No tables match your search' : 'No tables yet'}
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+
+          <Separator />
+
+          {/* Groups Section */}
+          <Collapsible open={showGroups} onOpenChange={setShowGroups}>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full justify-between p-2 h-auto"
+              >
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  <span className="font-medium">Groups</span>
+                  <Badge variant="secondary">{groups.length}</Badge>
+                </div>
+                {showGroups ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-2 mt-2">
+              {groups.map((group) => {
+                const groupTables = tables.filter(t => group.tableIds.includes(t.id));
+                
+                return (
+                  <div
+                    key={group.id}
+                    className="p-3 rounded-lg border bg-white border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded"
+                          style={{ backgroundColor: group.color }}
+                        />
+                        <span className="font-medium text-sm">{group.name}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteGroup(group.id);
+                        }}
+                        title="Delete group"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    
+                    <div className="text-xs text-gray-500 mb-2">
+                      {groupTables.length} tables
+                    </div>
+                    
+                    <div className="space-y-1">
+                      {groupTables.slice(0, 3).map((table) => (
+                        <div key={table.id} className="flex items-center gap-2 text-xs">
+                          <div
+                            className="w-2 h-2 rounded"
+                            style={{ backgroundColor: table.color || '#3B82F6' }}
+                          />
+                          <span className="text-gray-700">{table.name}</span>
+                        </div>
+                      ))}
+                      {groupTables.length > 3 && (
+                        <div className="text-xs text-gray-500">
+                          +{groupTables.length - 3} more tables
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {groups.length === 0 && (
+                <div className="text-center text-gray-500 text-sm py-4">
+                  No groups yet
                 </div>
               )}
             </CollapsibleContent>

@@ -13,7 +13,8 @@ import {
   FileText,
   Database,
   Save,
-  Route
+  Route,
+  Group
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -155,10 +156,12 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
     toast.success('Canvas cleared');
   };
 
-  const handleToolChange = (tool: 'select' | 'table') => {
+  const handleToolChange = (tool: 'select' | 'table' | 'group') => {
     setSelectedTool(tool);
     if (tool === 'table') {
       toast.info('Click on the canvas to add a table');
+    } else if (tool === 'group') {
+      toast.info('Select tables to group them together');
     }
   };
 
@@ -229,6 +232,16 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
         >
           <Square className="h-4 w-4" />
           Table
+        </Button>
+        
+        <Button
+          variant={selectedTool === 'group' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => handleToolChange('group')}
+          className="gap-2"
+        >
+          <Group className="h-4 w-4" />
+          Group
         </Button>
       </div>
 

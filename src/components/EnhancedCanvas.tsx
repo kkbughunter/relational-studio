@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Table } from './Table';
 import { Relation } from './Relation';
 import { RelationshipDialog } from './RelationshipDialog';
+import { GroupDialog } from './GroupDialog';
+import { GroupDeleteDialog } from './GroupDeleteDialog';
 import { useSchemaStore } from '@/store/useSchemaStore';
 import { Table as TableType, Relation as RelationType, DatabaseType } from '@/types/schema';
 
@@ -14,6 +16,7 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
   const {
     tables,
     relations,
+    groups,
     selectedTableId,
     selectedRelationId,
     selectedTool,
@@ -21,14 +24,18 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
     globalRoutingMode,
     canvasOffset,
     canvasScale,
+    selectedTableIds,
     setSelectedTable,
     setSelectedRelation,
+    setSelectedTableIds,
     addTable,
     updateTable,
     deleteTable,
     addRelation,
     updateRelation,
     deleteRelation,
+    updateGroup,
+    deleteGroup,
     setCanvasOffset,
     setCanvasScale,
   } = useSchemaStore();
@@ -42,6 +49,13 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
     waypoints?: Array<{ x: number; y: number }>;
   } | null>(null);
   const [showRelationDialog, setShowRelationDialog] = useState(false);
+  const [showGroupDialog, setShowGroupDialog] = useState(false);
+  const [groupBounds, setGroupBounds] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [groupFirstClick, setGroupFirstClick] = useState<{ x: number; y: number } | null>(null);
+  const [groupPreviewBounds, setGroupPreviewBounds] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [editingGroup, setEditingGroup] = useState<string | null>(null);
+  const [editGroupName, setEditGroupName] = useState('');
+  const [deleteGroupId, setDeleteGroupId] = useState<string | null>(null);
   const [isSpaceDown, setIsSpaceDown] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
@@ -55,6 +69,17 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') setIsSpaceDown(true);
+      if (e.code === 'Escape') {
+        // Cancel current operations and return to select mode
+        setPendingRelation(null);
+        setGroupFirstClick(null);
+        setGroupPreviewBounds(null);
+        setGroupBounds(null);
+        setShowGroupDialog(false);
+        setShowRelationDialog(false);
+        setSelectedTableIds([]);
+        useSchemaStore.getState().setSelectedTool('select');
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') setIsSpaceDown(false);
@@ -99,6 +124,28 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
       };
       
       addTable(newTable);
+      return;
+    }
+
+    if (selectedTool === 'group' && !clickedTable) {
+      const rect = canvasRef.current!.getBoundingClientRect();
+      const worldX = (e.clientX - rect.left - canvasOffset.x) / canvasScale;
+      const worldY = (e.clientY - rect.top - canvasOffset.y) / canvasScale;
+      
+      if (!groupFirstClick) {
+        setGroupFirstClick({ x: worldX, y: worldY });
+      } else {
+        const bounds = {
+          x: Math.min(groupFirstClick.x, worldX),
+          y: Math.min(groupFirstClick.y, worldY),
+          width: Math.abs(worldX - groupFirstClick.x),
+          height: Math.abs(worldY - groupFirstClick.y),
+        };
+        setGroupBounds(bounds);
+        setShowGroupDialog(true);
+        setGroupFirstClick(null);
+        setGroupPreviewBounds(null);
+      }
       return;
     }
 
@@ -191,6 +238,29 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
     e.preventDefault();
     setIsPanning(true);
     setPanStart({ x: e.clientX - canvasOffset.x, y: e.clientY - canvasOffset.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (groupFirstClick && selectedTool === 'group') {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      
+      const worldX = (e.clientX - rect.left - canvasOffset.x) / canvasScale;
+      const worldY = (e.clientY - rect.top - canvasOffset.y) / canvasScale;
+      
+      const bounds = {
+        x: Math.min(groupFirstClick.x, worldX),
+        y: Math.min(groupFirstClick.y, worldY),
+        width: Math.abs(worldX - groupFirstClick.x),
+        height: Math.abs(worldY - groupFirstClick.y),
+      };
+      
+      setGroupPreviewBounds(bounds);
+    }
+  };
+
+  const handleMouseUp = () => {
+    // Mouse up logic for other features if needed
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -290,6 +360,8 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
         }}
         onClick={handleCanvasClick}
         onMouseDownCapture={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
         onWheel={handleWheel}
         onContextMenu={(e) => e.preventDefault()}
       >
@@ -301,6 +373,129 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
               transformOrigin: '0 0',
             }}
           >
+            {/* Group backgrounds */}
+            {groups.map((group) => (
+              <div
+                key={group.id}
+                className="absolute pointer-events-none"
+                style={{
+                  left: `${group.bounds.x}px`,
+                  top: `${group.bounds.y}px`,
+                  width: `${group.bounds.width}px`,
+                  height: `${group.bounds.height}px`,
+                  backgroundColor: `${group.color}20`,
+                  border: `2px solid ${group.color}`,
+                  borderRadius: '8px',
+                  zIndex: 0,
+                }}
+              >
+                <div
+                  className="absolute flex items-center gap-1 pointer-events-auto"
+                  style={{
+                    top: '-28px',
+                    left: '4px',
+                  }}
+                >
+                  {editingGroup === group.id ? (
+                    <>
+                      <input
+                        value={editGroupName}
+                        onChange={(e) => setEditGroupName(e.target.value)}
+                        className="text-xs font-medium px-2 py-1 rounded shadow-sm border-0 outline-none"
+                        style={{
+                          backgroundColor: group.color,
+                          color: 'white',
+                          minWidth: '80px',
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            updateGroup({ ...group, name: editGroupName });
+                            setEditingGroup(null);
+                          }
+                          if (e.key === 'Escape') {
+                            setEditingGroup(null);
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        className="w-4 h-4 rounded text-white hover:bg-white hover:bg-opacity-20 flex items-center justify-center text-xs"
+                        onClick={() => {
+                          updateGroup({ ...group, name: editGroupName });
+                          setEditingGroup(null);
+                        }}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        className="w-4 h-4 rounded text-white hover:bg-white hover:bg-opacity-20 flex items-center justify-center text-xs"
+                        onClick={() => setEditingGroup(null)}
+                      >
+                        ✕
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div
+                        className="text-xs font-medium px-2 py-1 rounded shadow-sm cursor-pointer hover:bg-opacity-80"
+                        style={{
+                          backgroundColor: group.color,
+                          color: 'white',
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setEditingGroup(group.id);
+                          setEditGroupName(group.name);
+                        }}
+                        title="Click to edit group name"
+                      >
+                        {group.name}
+                      </div>
+                      <button
+                        className="w-4 h-4 rounded text-white hover:bg-white hover:bg-opacity-20 flex items-center justify-center text-xs"
+                        style={{ backgroundColor: group.color }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setDeleteGroupId(group.id);
+                        }}
+                        title="Delete group"
+                      >
+                        ✕
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Group first click indicator */}
+            {groupFirstClick && (
+              <div
+                className="absolute pointer-events-none w-3 h-3 bg-purple-500 border-2 border-white rounded-full shadow-lg"
+                style={{
+                  left: groupFirstClick.x - 6,
+                  top: groupFirstClick.y - 6,
+                  zIndex: 5,
+                }}
+              />
+            )}
+            
+            {/* Group preview rectangle */}
+            {groupPreviewBounds && (
+              <div
+                className="absolute pointer-events-none border-2 border-dashed border-purple-500 bg-purple-500 bg-opacity-10"
+                style={{
+                  left: groupPreviewBounds.x,
+                  top: groupPreviewBounds.y,
+                  width: groupPreviewBounds.width,
+                  height: groupPreviewBounds.height,
+                  zIndex: 5,
+                }}
+              />
+            )}
+
             <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, overflow: 'visible', pointerEvents: 'none' }}>
               <defs>
                 <marker
@@ -424,13 +619,14 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
                 .filter(Boolean);
               
               return (
-                <div key={table.id} className="pointer-events-auto relative" style={{ zIndex: 10 }}>
+                <div key={table.id} className="pointer-events-auto relative" style={{ zIndex: 20 }}>
                   <Table
                     table={table}
                     isSelected={
                       table.id === selectedTableId ||
                       table.id === pendingRelation?.sourceTableId
                     }
+                    isMultiSelected={false}
                     databaseType={databaseType}
                     onSelect={() => handleTableClick(table.id)}
                     onUpdate={updateTable}
@@ -464,6 +660,12 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
                 ? `Click to add waypoints (${(pendingRelation.waypoints || []).length} added), then click another column to finish`
                 : 'Click on another column to create relationship'
               }
+            </div>
+          )}
+          
+          {groupFirstClick && (
+            <div className="fixed top-20 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-4 py-2 rounded-lg shadow-lg pointer-events-none z-50">
+              Click second point to define group area
             </div>
           )}
       </div>
@@ -503,6 +705,33 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
           targetColumn={tables.find(t => t.id === pendingRelation.targetTableId)?.columns.find(c => c.id === pendingRelation.targetColumnId)?.name || ''}
         />
       )}
+      
+      <GroupDialog
+        open={showGroupDialog}
+        onOpenChange={(open) => {
+          setShowGroupDialog(open);
+          if (!open) {
+            setGroupBounds(null);
+            setGroupFirstClick(null);
+            setGroupPreviewBounds(null);
+          }
+        }}
+        bounds={groupBounds}
+      />
+      
+      <GroupDeleteDialog
+        open={!!deleteGroupId}
+        onOpenChange={(open) => {
+          if (!open) setDeleteGroupId(null);
+        }}
+        groupName={groups.find(g => g.id === deleteGroupId)?.name || ''}
+        onConfirm={() => {
+          if (deleteGroupId) {
+            deleteGroup(deleteGroupId);
+            setDeleteGroupId(null);
+          }
+        }}
+      />
     </div>
   );
 };

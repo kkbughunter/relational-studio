@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Table, Relation, DatabaseType, Project } from '@/types/schema';
+import { Table, Relation, DatabaseType, Project, Group } from '@/types/schema';
 
 interface SchemaState {
   // Project data
@@ -8,12 +8,14 @@ interface SchemaState {
   // Schema data
   tables: Table[];
   relations: Relation[];
+  groups: Group[];
   databaseType: DatabaseType;
+  selectedTableIds: string[];
   
   // UI state
   selectedTableId: string | null;
   selectedRelationId: string | null;
-  selectedTool: 'select' | 'table';
+  selectedTool: 'select' | 'table' | 'group';
   relationshipType: '1:1' | '1:N' | 'N:M';
   globalRoutingMode: 'auto' | 'manual';
   showClearConfirmDialog: boolean;
@@ -34,7 +36,14 @@ interface SchemaState {
   setCurrentProject: (project: Project | null) => void;
   setTables: (tables: Table[]) => void;
   setRelations: (relations: Relation[]) => void;
+  setGroups: (groups: Group[]) => void;
   setDatabaseType: (type: DatabaseType) => void;
+  addGroup: (group: Group) => void;
+  updateGroup: (group: Group) => void;
+  deleteGroup: (id: string) => void;
+  setSelectedTableIds: (ids: string[]) => void;
+  createGroupFromSelected: (name: string, color: string) => void;
+  createGroupFromBounds: (name: string, color: string, bounds: { x: number; y: number; width: number; height: number }) => void;
   addTable: (table: Table) => void;
   updateTable: (table: Table) => void;
   deleteTable: (id: string) => void;
@@ -43,7 +52,7 @@ interface SchemaState {
   deleteRelation: (id: string) => void;
   setSelectedTable: (id: string | null) => void;
   setSelectedRelation: (id: string | null) => void;
-  setSelectedTool: (tool: 'select' | 'table') => void;
+  setSelectedTool: (tool: 'select' | 'table' | 'group') => void;
   setRelationshipType: (type: '1:1' | '1:N' | 'N:M') => void;
   setGlobalRoutingMode: (mode: 'auto' | 'manual') => void;
   setShowClearConfirmDialog: (show: boolean) => void;
@@ -66,7 +75,9 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   currentProject: null,
   tables: [],
   relations: [],
+  groups: [],
   databaseType: 'postgresql',
+  selectedTableIds: [],
   selectedTableId: null,
   selectedRelationId: null,
   selectedTool: 'select',
@@ -85,7 +96,109 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
 
   setRelations: (relations) => set({ relations }),
 
+  setGroups: (groups) => set({ groups }),
+
   setDatabaseType: (type) => set({ databaseType: type }),
+
+  addGroup: (group) => {
+    set((state) => ({
+      groups: [...state.groups, group],
+    }));
+  },
+
+  updateGroup: (updatedGroup) => {
+    set((state) => ({
+      groups: state.groups.map((group) =>
+        group.id === updatedGroup.id ? updatedGroup : group
+      ),
+    }));
+  },
+
+  deleteGroup: (id) => {
+    const { pushHistory } = get();
+    pushHistory();
+    set((state) => ({
+      groups: state.groups.filter((group) => group.id !== id),
+      tables: state.tables.map((table) =>
+        table.groupId === id ? { ...table, groupId: undefined } : table
+      ),
+    }));
+  },
+
+  setSelectedTableIds: (ids) => set({ selectedTableIds: ids }),
+
+  createGroupFromSelected: (name, color) => {
+    const { selectedTableIds, addGroup, updateTable, tables } = get();
+    if (selectedTableIds.length === 0) return;
+
+    // Calculate bounds from selected tables
+    const selectedTables = tables.filter(t => selectedTableIds.includes(t.id));
+    const minX = Math.min(...selectedTables.map(t => t.position.x)) - 20;
+    const minY = Math.min(...selectedTables.map(t => t.position.y)) - 40;
+    const maxX = Math.max(...selectedTables.map(t => t.position.x + 420)) + 20;
+    const maxY = Math.max(...selectedTables.map(t => t.position.y + 120)) + 20;
+
+    const groupId = `group-${Date.now()}`;
+    const newGroup: Group = {
+      id: groupId,
+      name,
+      color,
+      tableIds: selectedTableIds,
+      bounds: {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+      },
+    };
+
+    addGroup(newGroup);
+    
+    // Update tables to belong to this group
+    selectedTableIds.forEach((tableId) => {
+      const table = get().tables.find(t => t.id === tableId);
+      if (table) {
+        updateTable({ ...table, groupId });
+      }
+    });
+
+    set({ selectedTableIds: [] });
+  },
+
+  createGroupFromBounds: (name: string, color: string, bounds: { x: number; y: number; width: number; height: number }) => {
+    const { tables, pushHistory } = get();
+    
+    pushHistory();
+    
+    // Find tables within bounds
+    const tablesInBounds = tables.filter(table => {
+      const tableRight = table.position.x + 420;
+      const tableBottom = table.position.y + 120;
+      
+      return table.position.x >= bounds.x &&
+             table.position.y >= bounds.y &&
+             tableRight <= bounds.x + bounds.width &&
+             tableBottom <= bounds.y + bounds.height;
+    });
+
+    const groupId = `group-${Date.now()}`;
+    const newGroup: Group = {
+      id: groupId,
+      name,
+      color,
+      tableIds: tablesInBounds.map(t => t.id),
+      bounds,
+    };
+
+    set((state) => ({
+      groups: [...state.groups, newGroup],
+      tables: state.tables.map((table) =>
+        tablesInBounds.find(t => t.id === table.id)
+          ? { ...table, groupId }
+          : table
+      ),
+    }));
+  },
 
   addTable: (table) => {
     const { pushHistory } = get();

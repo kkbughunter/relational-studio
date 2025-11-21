@@ -42,6 +42,20 @@ export interface Table {
   description?: string;
   indexes: Index[];
   constraints: Constraint[];
+  groupId?: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  color: string;
+  tableIds: string[];
+  bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface Relation {

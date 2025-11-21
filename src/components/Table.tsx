@@ -12,6 +12,7 @@ import { Table as TableType, Column, DatabaseType, DATA_TYPES, TABLE_COLORS } fr
 interface TableProps {
   table: TableType;
   isSelected: boolean;
+  isMultiSelected?: boolean;
   databaseType: DatabaseType;
   onSelect: () => void;
   onUpdate: (table: TableType) => void;
@@ -24,6 +25,7 @@ interface TableProps {
 export const Table = ({ 
   table, 
   isSelected, 
+  isMultiSelected = false,
   databaseType,
   onSelect, 
   onUpdate, 
@@ -174,7 +176,8 @@ export const Table = ({
       id={`table-root-${table.id}`}
       data-table-root="true"
       className={`absolute bg-white border-2 rounded-lg shadow-lg cursor-move select-none w-[420px] ${
-        isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-gray-300'
+        isSelected ? 'border-primary ring-2 ring-primary/20' : 
+        isMultiSelected ? 'border-green-500 ring-2 ring-green-500/20' : 'border-gray-300'
       }`}
       style={{
         left: `${table.position.x}px`,
