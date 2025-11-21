@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Search, Table2, GitBranch, Eye, EyeOff, Palette, Info, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { Search, Table2, GitBranch, Eye, EyeOff, Palette, Info, ChevronLeft, ChevronRight, Trash2, Edit2, Check, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useSchemaStore } from '@/store/useSchemaStore';
 import { SchemaMinimap } from './SchemaMinimap';
 import { Table, Relation } from '@/types/schema';
@@ -20,12 +21,17 @@ export const Sidebar = () => {
     navigateToRelation,
     deleteTable,
     deleteRelation,
+    updateTable,
+    updateRelation,
   } = useSchemaStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [showTables, setShowTables] = useState(true);
   const [showRelations, setShowRelations] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [editingTable, setEditingTable] = useState<string | null>(null);
+  const [editingRelation, setEditingRelation] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<any>({});
 
   const filteredTables = tables.filter(table =>
     table.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -189,20 +195,89 @@ export const Sidebar = () => {
                           className="w-3 h-3 rounded"
                           style={{ backgroundColor: table.color || '#3B82F6' }}
                         />
-                        <span className="font-medium text-sm">{table.name}</span>
+                        {editingTable === table.id ? (
+                          <Input
+                            value={editValues.name || table.name}
+                            onChange={(e) => setEditValues({ ...editValues, name: e.target.value })}
+                            className="h-6 text-sm font-medium"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                updateTable({ ...table, name: editValues.name || table.name });
+                                setEditingTable(null);
+                                setEditValues({});
+                              }
+                              if (e.key === 'Escape') {
+                                setEditingTable(null);
+                                setEditValues({});
+                              }
+                            }}
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="font-medium text-sm">{table.name}</span>
+                        )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteTable(table.id);
-                        }}
-                        title="Delete table"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <div className="flex gap-1">
+                        {editingTable === table.id ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateTable({ ...table, name: editValues.name || table.name });
+                                setEditingTable(null);
+                                setEditValues({});
+                              }}
+                              title="Save changes"
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingTable(null);
+                                setEditValues({});
+                              }}
+                              title="Cancel"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingTable(table.id);
+                                setEditValues({ name: table.name });
+                              }}
+                              title="Edit table"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteTable(table.id);
+                              }}
+                              title="Delete table"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="text-xs text-gray-500 mb-2">
@@ -299,21 +374,96 @@ export const Sidebar = () => {
                     onClick={() => navigateToRelation(relation.id)}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <Badge variant="outline" className="text-xs">
-                        {relation.type}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteRelation(relation.id);
-                        }}
-                        title="Delete relation"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      {editingRelation === relation.id ? (
+                        <Select
+                          value={editValues.type || relation.type}
+                          onValueChange={(value) => setEditValues({ ...editValues, type: value })}
+                        >
+                          <SelectTrigger className="h-6 text-xs w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1:1">1:1</SelectItem>
+                            <SelectItem value="1:N">1:N</SelectItem>
+                            <SelectItem value="N:1">N:1</SelectItem>
+                            <SelectItem value="N:M">N:M</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Badge variant="outline" className="text-xs">
+                          {relation.type}
+                        </Badge>
+                      )}
+                      <div className="flex gap-1">
+                        {editingRelation === relation.id ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateRelation({ 
+                                  ...relation, 
+                                  type: editValues.type || relation.type,
+                                  onDelete: editValues.onDelete || relation.onDelete,
+                                  onUpdate: editValues.onUpdate || relation.onUpdate
+                                });
+                                setEditingRelation(null);
+                                setEditValues({});
+                              }}
+                              title="Save changes"
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingRelation(null);
+                                setEditValues({});
+                              }}
+                              title="Cancel"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingRelation(relation.id);
+                                setEditValues({ 
+                                  type: relation.type,
+                                  onDelete: relation.onDelete,
+                                  onUpdate: relation.onUpdate
+                                });
+                              }}
+                              title="Edit relation"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteRelation(relation.id);
+                              }}
+                              title="Delete relation"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Column connection info */}
@@ -333,9 +483,50 @@ export const Sidebar = () => {
                       </div>
                     )}
                     
-                    <div className="flex gap-2 text-xs text-gray-500">
-                      <span>ON DELETE: {relation.onDelete}</span>
-                      <span>ON UPDATE: {relation.onUpdate}</span>
+                    <div className="space-y-1">
+                      {editingRelation === relation.id ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500 w-16">ON DELETE:</span>
+                            <Select
+                              value={editValues.onDelete || relation.onDelete}
+                              onValueChange={(value) => setEditValues({ ...editValues, onDelete: value })}
+                            >
+                              <SelectTrigger className="h-6 text-xs flex-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="NO ACTION">NO ACTION</SelectItem>
+                                <SelectItem value="CASCADE">CASCADE</SelectItem>
+                                <SelectItem value="SET NULL">SET NULL</SelectItem>
+                                <SelectItem value="RESTRICT">RESTRICT</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-500 w-16">ON UPDATE:</span>
+                            <Select
+                              value={editValues.onUpdate || relation.onUpdate}
+                              onValueChange={(value) => setEditValues({ ...editValues, onUpdate: value })}
+                            >
+                              <SelectTrigger className="h-6 text-xs flex-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="NO ACTION">NO ACTION</SelectItem>
+                                <SelectItem value="CASCADE">CASCADE</SelectItem>
+                                <SelectItem value="SET NULL">SET NULL</SelectItem>
+                                <SelectItem value="RESTRICT">RESTRICT</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 text-xs text-gray-500">
+                          <span>ON DELETE: {relation.onDelete}</span>
+                          <span>ON UPDATE: {relation.onUpdate}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

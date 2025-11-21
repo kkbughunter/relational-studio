@@ -101,14 +101,14 @@ export const Relation = ({
     const offset = getRelationOffset(table.id, columnId, relation.id);
     
     if (table === sourceTable) {
-      // Connect from right side if target is to the right, otherwise from left
+      // Always connect from right side if target is to the right, otherwise from left
       const connectFromRight = targetCenter.x > sourceCenter.x;
       return {
         x: table.position.x + (connectFromRight ? width : 0),
         y: columnY + offset
       };
     } else {
-      // Connect from left side if source is to the left, otherwise from right
+      // Always connect from left side if source is to the left, otherwise from right
       const connectFromLeft = sourceCenter.x < targetCenter.x;
       return {
         x: table.position.x + (connectFromLeft ? 0 : width),
@@ -155,13 +155,19 @@ export const Relation = ({
       return `M ${sourcePoint.x} ${sourcePoint.y} L ${targetPoint.x} ${targetPoint.y}`;
     }
 
-    // Straight line connection with small horizontal segments at start and end
-    const gap = 15;
-    const sourceIsLeft = sourcePoint.x < targetPoint.x;
-    const startX = sourceIsLeft ? sourcePoint.x + gap : sourcePoint.x - gap;
-    const endX = sourceIsLeft ? targetPoint.x - gap : targetPoint.x + gap;
+    // Straight line connection with horizontal segments going outward from tables
+    const gap = 30;
+    const sourceConnectsFromRight = sourcePoint.x === sourceTable.position.x + 480;
+    const targetConnectsFromLeft = targetPoint.x === targetTable.position.x;
     
-    return `M ${sourcePoint.x} ${sourcePoint.y} L ${startX} ${sourcePoint.y} L ${endX} ${targetPoint.y} L ${targetPoint.x} ${targetPoint.y}`;
+    const startX = sourceConnectsFromRight ? sourcePoint.x + gap : sourcePoint.x - gap;
+    const endX = targetConnectsFromLeft ? targetPoint.x - gap : targetPoint.x + gap;
+    
+    const radius = 10;
+    return `M ${sourcePoint.x} ${sourcePoint.y} 
+            Q ${sourcePoint.x + (sourceConnectsFromRight ? radius : -radius)} ${sourcePoint.y} ${startX} ${sourcePoint.y} 
+            Q ${(startX + endX) / 2} ${(sourcePoint.y + targetPoint.y) / 2} ${endX} ${targetPoint.y} 
+            Q ${targetPoint.x + (targetConnectsFromLeft ? -radius : radius)} ${targetPoint.y} ${targetPoint.x} ${targetPoint.y}`;
   };
 
   let path;
@@ -242,11 +248,13 @@ export const Relation = ({
     const labelX = (sourcePoint.x + targetPoint.x) / 2;
     const labelY = (sourcePoint.y + targetPoint.y) / 2;
     
-    // Calculate positions outside tables
+    // Calculate positions outside tables following same rules as lines but closer
     const gap = 15;
-    const sourceIsLeft = sourcePoint.x < targetPoint.x;
-    const sourceMarkerX = sourceIsLeft ? sourcePoint.x + gap - 5 : sourcePoint.x - gap + 5;
-    const targetMarkerX = sourceIsLeft ? targetPoint.x - gap + 5 : targetPoint.x + gap - 5;
+    const sourceConnectsFromRight = sourcePoint.x === sourceTable.position.x + 480;
+    const targetConnectsFromLeft = targetPoint.x === targetTable.position.x;
+    
+    const sourceMarkerX = sourceConnectsFromRight ? sourcePoint.x + gap : sourcePoint.x - gap;
+    const targetMarkerX = targetConnectsFromLeft ? targetPoint.x - gap : targetPoint.x + gap;
 
     return (
       <>
@@ -260,6 +268,8 @@ export const Relation = ({
             stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
           />
         ) : relation.type === '1:N' ? (
           <line
@@ -270,9 +280,11 @@ export const Relation = ({
             stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
           />
         ) : relation.type === 'N:1' ? (
-          <g>
+          <g onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
             <line
               x1={sourceMarkerX}
               y1={sourcePoint.y}
@@ -302,7 +314,7 @@ export const Relation = ({
             />
           </g>
         ) : (
-          <g>
+          <g onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
             <line
               x1={sourceMarkerX}
               y1={sourcePoint.y}
@@ -343,9 +355,11 @@ export const Relation = ({
             stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
           />
         ) : relation.type === '1:N' ? (
-          <g>
+          <g onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
             <line
               x1={targetMarkerX}
               y1={targetPoint.y}
@@ -383,9 +397,11 @@ export const Relation = ({
             stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
           />
         ) : (
-          <g>
+          <g onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
             <line
               x1={targetMarkerX}
               y1={targetPoint.y}
@@ -469,6 +485,7 @@ export const Relation = ({
         strokeWidth={strokeWidth}
         fill="none"
         className="cursor-pointer transition-all duration-200"
+        style={{ transition: 'd 0.0s ease-out' }}
         pointerEvents="stroke"
         vectorEffect="non-scaling-stroke"
         onMouseEnter={() => setIsHovered(true)}
@@ -628,7 +645,7 @@ export const Relation = ({
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="max-h-60 overflow-y-auto">
+                        <SelectContent className="max-h-[200px] overflow-y-auto">
                           <SelectItem value="1:1">One-to-One (1:1)</SelectItem>
                           <SelectItem value="1:N">One-to-Many (1:N)</SelectItem>
                           <SelectItem value="N:1">Many-to-One (N:1)</SelectItem>
@@ -646,7 +663,7 @@ export const Relation = ({
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-[200px] overflow-y-auto">
                           {RELATIONSHIP_ACTIONS.map((action) => (
                             <SelectItem key={action} value={action}>
                               {action}
@@ -665,7 +682,7 @@ export const Relation = ({
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-[200px] overflow-y-auto">
                           {RELATIONSHIP_ACTIONS.map((action) => (
                             <SelectItem key={action} value={action}>
                               {action}
@@ -684,7 +701,7 @@ export const Relation = ({
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-[200px] overflow-y-auto">
                           <SelectItem value="auto">Automatic</SelectItem>
                           <SelectItem value="manual">Manual</SelectItem>
                         </SelectContent>

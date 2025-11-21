@@ -9,7 +9,7 @@ import {
 interface RelationshipDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (type: '1:1' | '1:N' | 'N:M') => void;
+  onSelect: (type: '1:1' | '1:N' | 'N:1' | 'N:M') => void;
   sourceTable: string;
   targetTable: string;
   sourceColumn: string;
@@ -25,7 +25,7 @@ export const RelationshipDialog = ({
   sourceColumn,
   targetColumn,
 }: RelationshipDialogProps) => {
-  const handleSelect = (type: '1:1' | '1:N' | 'N:M') => {
+  const handleSelect = (type: '1:1' | '1:N' | 'N:1' | 'N:M') => {
     onSelect(type);
     onClose();
   };
@@ -64,6 +64,17 @@ export const RelationshipDialog = ({
               <div className="text-left">
                 <div className="font-medium">One-to-Many (1:N)</div>
                 <div className="text-xs text-gray-500">One record can relate to many records</div>
+              </div>
+            </Button>
+            
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => handleSelect('N:1')}
+            >
+              <div className="text-left">
+                <div className="font-medium">Many-to-One (N:1)</div>
+                <div className="text-xs text-gray-500">Many records can relate to one record</div>
               </div>
             </Button>
             

@@ -164,7 +164,7 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
     }
   };
 
-  const createRelation = (type: '1:1' | '1:N' | 'N:M') => {
+  const createRelation = (type: '1:1' | '1:N' | 'N:1' | 'N:M') => {
     if (!pendingRelation?.targetTableId || !pendingRelation?.targetColumnId || !pendingRelation?.sourceColumnId) return;
     
     const newRelation: RelationType = {
