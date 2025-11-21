@@ -1,4 +1,4 @@
-export type NodeType = 'start' | 'process' | 'decision' | 'input' | 'output' | 'end' | 'connector' | 'document' | 'database' | 'cloud' | 'subroutine' | 'delay' | 'manual';
+export type NodeType = 'start' | 'process' | 'decision' | 'input' | 'output' | 'end' | 'connector' | 'document' | 'database' | 'cloud' | 'subroutine' | 'delay' | 'manual' | 'terminator' | 'data' | 'multiple-documents' | 'preparation' | 'display' | 'manual-input' | 'manual-loop' | 'loop-limit' | 'stored-data' | 'off-page-connector' | 'or' | 'and' | 'collate' | 'sort' | 'merge' | 'internal-storage';
 
 export interface FlowchartNode {
   id: string;

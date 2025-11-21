@@ -49,6 +49,13 @@ export const FlowchartCanvas = () => {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space') setIsSpaceDown(true);
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedNodeId) {
+          deleteNode(selectedNodeId);
+        } else if (selectedConnectionId) {
+          deleteConnection(selectedConnectionId);
+        }
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') setIsSpaceDown(false);
@@ -59,7 +66,7 @@ export const FlowchartCanvas = () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
     };
-  }, []);
+  }, [selectedNodeId, selectedConnectionId, deleteNode, deleteConnection]);
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -254,7 +261,7 @@ export const FlowchartCanvas = () => {
             transformOrigin: '0 0',
           }}
         >
-          <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, overflow: 'visible', pointerEvents: 'none' }}>
+          <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, overflow: 'visible' }}>
             <defs>
               <marker
                 id="arrowhead"

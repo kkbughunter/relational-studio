@@ -166,24 +166,47 @@ export const FlowchartNode = ({
     switch (node.type) {
       case 'start':
       case 'end':
+      case 'terminator':
         return 'rounded-full';
       case 'decision':
         return 'transform rotate-45 scale-110';
       case 'input':
       case 'output':
+      case 'data':
         return 'transform skew-x-12';
       case 'document':
         return 'rounded-t-lg';
+      case 'multiple-documents':
+        return 'rounded-t-lg';
       case 'database':
+      case 'stored-data':
         return 'rounded-lg';
       case 'cloud':
         return 'rounded-full';
       case 'subroutine':
+      case 'preparation':
         return 'rounded-lg border-l-4 border-r-4';
       case 'delay':
         return 'rounded-r-full';
       case 'manual':
+      case 'manual-input':
         return 'transform skew-y-6';
+      case 'display':
+        return 'rounded-lg';
+      case 'manual-loop':
+      case 'loop-limit':
+        return 'rounded-lg';
+      case 'off-page-connector':
+        return 'rounded-full';
+      case 'or':
+      case 'and':
+        return 'rounded-full';
+      case 'collate':
+      case 'sort':
+      case 'merge':
+        return 'transform rotate-45';
+      case 'internal-storage':
+        return 'rounded-lg border-l-4';
       default:
         return 'rounded-lg';
     }
