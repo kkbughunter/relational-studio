@@ -162,12 +162,14 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
     }
   };
 
-  const getRelationshipLabel = (type: '1:1' | '1:N' | 'N:M') => {
+  const getRelationshipLabel = (type: '1:1' | '1:N' | 'N:1' | 'N:M') => {
     switch (type) {
       case '1:1':
         return '1:1';
       case '1:N':
         return '1:N';
+      case 'N:1':
+        return 'N:1';
       case 'N:M':
         return 'N:M';
     }
@@ -185,9 +187,6 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
           <SelectContent>
             <SelectItem value="postgresql">PostgreSQL</SelectItem>
             <SelectItem value="mysql">MySQL</SelectItem>
-            <SelectItem value="sqlite">SQLite</SelectItem>
-            <SelectItem value="sqlserver">SQL Server</SelectItem>
-            <SelectItem value="oracle">Oracle</SelectItem>
           </SelectContent>
         </Select>
       </div>

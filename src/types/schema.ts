@@ -48,7 +48,7 @@ export interface Relation {
   toTableId: string;
   fromColumnId: string;
   toColumnId: string;
-  type: '1:1' | '1:N' | 'N:M';
+  type: '1:1' | '1:N' | 'N:1' | 'N:M';
   onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION';
   onUpdate: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION';
   name?: string;

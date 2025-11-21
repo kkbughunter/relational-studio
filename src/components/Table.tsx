@@ -146,7 +146,7 @@ export const Table = ({
       ref={tableRef}
       id={`table-root-${table.id}`}
       data-table-root="true"
-      className={`absolute bg-white border-2 rounded-lg shadow-lg cursor-move select-none w-[445px] ${
+      className={`absolute bg-white border-2 rounded-lg shadow-lg cursor-move select-none w-[480px] ${
         isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-gray-300'
       }`}
       style={{

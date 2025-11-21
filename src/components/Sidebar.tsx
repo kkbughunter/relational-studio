@@ -316,8 +316,15 @@ export const Sidebar = () => {
                       </Button>
                     </div>
                     
+                    {/* Column connection info */}
                     <div className="text-sm font-medium text-gray-900 mb-1">
-                      {getRelationLabel(relation)}
+                      {(() => {
+                        const sourceTable = tables.find(t => t.id === relation.fromTableId);
+                        const targetTable = tables.find(t => t.id === relation.toTableId);
+                        const sourceColumn = sourceTable?.columns.find(c => c.id === relation.fromColumnId);
+                        const targetColumn = targetTable?.columns.find(c => c.id === relation.toColumnId);
+                        return `${sourceTable?.name || 'unknown'}.${sourceColumn?.name || 'unknown'} → ${targetTable?.name || 'unknown'}.${targetColumn?.name || 'unknown'}`;
+                      })()} 
                     </div>
                     
                     {relation.name && (

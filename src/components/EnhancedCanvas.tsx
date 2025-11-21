@@ -194,6 +194,12 @@ export const EnhancedCanvas = ({ databaseType }: EnhancedCanvasProps) => {
   };
 
   const handleWheel = (e: React.WheelEvent) => {
+    // Don't zoom if scrolling inside a dropdown or select
+    const target = e.target as HTMLElement;
+    if (target.closest('[role="listbox"]') || target.closest('.select-content')) {
+      return;
+    }
+    
     e.preventDefault();
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;

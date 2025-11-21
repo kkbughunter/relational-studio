@@ -209,8 +209,6 @@ export class SQLGenerator {
         return `COMMENT ON TABLE ${escapedName} IS ${escapedComment}`;
       case 'mysql':
         return `ALTER TABLE ${escapedName} COMMENT = ${escapedComment}`;
-      case 'sqlserver':
-        return `EXEC sp_addextendedproperty 'MS_Description', ${escapedComment}, 'SCHEMA', 'dbo', 'TABLE', '${tableName}'`;
       default:
         return `-- Table comment: ${comment}`;
     }
@@ -239,12 +237,6 @@ export class SQLGenerator {
         return `"${identifier}"`;
       case 'mysql':
         return `\`${identifier}\``;
-      case 'sqlserver':
-        return `[${identifier}]`;
-      case 'sqlite':
-        return `"${identifier}"`;
-      case 'oracle':
-        return `"${identifier.toUpperCase()}"`;
       default:
         return identifier;
     }
@@ -264,14 +256,8 @@ export class SQLGenerator {
   private getIfNotExistsClause(): string {
     switch (this.databaseType) {
       case 'postgresql':
-      case 'sqlite':
-        return 'IF NOT EXISTS ';
       case 'mysql':
         return 'IF NOT EXISTS ';
-      case 'sqlserver':
-        return ''; // SQL Server uses different syntax
-      case 'oracle':
-        return ''; // Oracle uses different syntax
       default:
         return '';
     }
@@ -283,12 +269,6 @@ export class SQLGenerator {
         return ''; // Handled by SERIAL type
       case 'mysql':
         return 'AUTO_INCREMENT';
-      case 'sqlserver':
-        return 'IDENTITY(1,1)';
-      case 'sqlite':
-        return 'AUTOINCREMENT';
-      case 'oracle':
-        return ''; // Handled by sequences
       default:
         return '';
     }
@@ -297,14 +277,9 @@ export class SQLGenerator {
   private getBeginTransaction(): string {
     switch (this.databaseType) {
       case 'postgresql':
-      case 'sqlite':
         return 'BEGIN;';
       case 'mysql':
         return 'START TRANSACTION;';
-      case 'sqlserver':
-        return 'BEGIN TRANSACTION;';
-      case 'oracle':
-        return 'BEGIN;';
       default:
         return 'BEGIN;';
     }

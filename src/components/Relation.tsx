@@ -65,12 +65,19 @@ export const Relation = ({
       (r.toTableId === tableId && r.toColumnId === columnId)
     );
     const index = sameColumnRelations.findIndex(r => r.id === relationId);
-    return Math.max(0, index * 15); // Only positive offsets (downward)
+    const totalRelations = sameColumnRelations.length;
+    
+    if (totalRelations === 1) return 0;
+    
+    // Distribute relations above and below center
+    const spacing = 12;
+    const centerIndex = (totalRelations - 1) / 2;
+    return (index - centerIndex) * spacing;
   };
 
   // Calculate column-specific anchor points
   const getColumnAnchorPoint = (table: Table, columnId: string) => {
-    const width = 445;
+    const width = 480;
     const headerHeight = 60;
     const columnHeight = 40;
     
@@ -81,7 +88,11 @@ export const Relation = ({
       return { x: table.position.x + width / 2, y: table.position.y + height / 2 };
     }
     
-    const columnY = table.position.y + headerHeight + (columnIndex * columnHeight) + (columnHeight / 2);
+    const paddingTop = 12; // p-3 = 12px padding
+    const columnSpacing = 4; // space-y-1 = 4px gap
+    const columnPadding = 16; // py-3 = 12px vertical padding per column
+    const actualColumnHeight = 40 + columnPadding; // min-h-[40px] + py-3 padding
+    const columnY = table.position.y + headerHeight + paddingTop + (columnIndex * (actualColumnHeight + columnSpacing)) + (actualColumnHeight / 2);
     
     // Determine which side to connect from based on table positions
     const sourceCenter = { x: sourceTable.position.x + width / 2, y: sourceTable.position.y + headerHeight / 2 };
@@ -144,17 +155,13 @@ export const Relation = ({
       return `M ${sourcePoint.x} ${sourcePoint.y} L ${targetPoint.x} ${targetPoint.y}`;
     }
 
-    // Auto routing using external pathfinding library
-    const pathfinder = new ExternalPathfinder(20);
-    const obstacles = allTables.map(table => ({
-      x: table.position.x - 30,
-      y: table.position.y - 30,
-      width: 480 + 60,
-      height: Math.max(120, 60 + table.columns.length * 40) + 60
-    }));
+    // Straight line connection with small horizontal segments at start and end
+    const gap = 15;
+    const sourceIsLeft = sourcePoint.x < targetPoint.x;
+    const startX = sourceIsLeft ? sourcePoint.x + gap : sourcePoint.x - gap;
+    const endX = sourceIsLeft ? targetPoint.x - gap : targetPoint.x + gap;
     
-    const pathPoints = pathfinder.findPath(sourcePoint, targetPoint, obstacles);
-    return pathfinder.createSVGPath(pathPoints);
+    return `M ${sourcePoint.x} ${sourcePoint.y} L ${startX} ${sourcePoint.y} L ${endX} ${targetPoint.y} L ${targetPoint.x} ${targetPoint.y}`;
   };
 
   let path;
@@ -231,153 +238,217 @@ export const Relation = ({
 
   // Render relationship notation
   const renderNotation = () => {
-    // For bent paths, calculate angles from actual path segments
-    const midX = sourcePoint.x + (targetPoint.x - sourcePoint.x) * 0.5;
+    // Add relationship type label on the middle of the line
+    const labelX = (sourcePoint.x + targetPoint.x) / 2;
+    const labelY = (sourcePoint.y + targetPoint.y) / 2;
     
-    // Source notation on horizontal segment
-    const sourceNotationX = sourcePoint.x + 20;
-    const sourceNotationY = sourcePoint.y;
-    
-    // Target notation on horizontal segment
-    const targetNotationX = targetPoint.x - 20;
-    const targetNotationY = targetPoint.y;
+    // Calculate positions outside tables
+    const gap = 15;
+    const sourceIsLeft = sourcePoint.x < targetPoint.x;
+    const sourceMarkerX = sourceIsLeft ? sourcePoint.x + gap - 5 : sourcePoint.x - gap + 5;
+    const targetMarkerX = sourceIsLeft ? targetPoint.x - gap + 5 : targetPoint.x + gap - 5;
 
-    if (relation.type === '1:1') {
-      return (
-        <>
-          {/* One side at source */}
+    return (
+      <>
+        {/* Start line marker - show | for 1 side, N for many side */}
+        {relation.type === '1:1' ? (
           <line
-            x1={sourceNotationX}
-            y1={sourceNotationY - 8}
-            x2={sourceNotationX}
-            y2={sourceNotationY + 8}
+            x1={sourceMarkerX}
+            y1={sourcePoint.y - 5}
+            x2={sourceMarkerX}
+            y2={sourcePoint.y + 5}
             stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
-          {/* One side at target */}
+        ) : relation.type === '1:N' ? (
           <line
-            x1={targetNotationX}
-            y1={targetNotationY - 8}
-            x2={targetNotationX}
-            y2={targetNotationY + 8}
+            x1={sourceMarkerX}
+            y1={sourcePoint.y - 5}
+            x2={sourceMarkerX}
+            y2={sourcePoint.y + 5}
             stroke={strokeColor}
             strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
-        </>
-      );
-    } else if (relation.type === '1:N') {
-      return (
-        <>
-          {/* One side at source */}
-          <line
-            x1={sourceNotationX}
-            y1={sourceNotationY - 8}
-            x2={sourceNotationX}
-            y2={sourceNotationY + 8}
-            stroke={strokeColor}
-            strokeWidth="2"
-            vectorEffect="non-scaling-stroke"
-          />
-          {/* Many side at target (crow's foot) */}
+        ) : relation.type === 'N:1' ? (
           <g>
             <line
-              x1={targetNotationX}
-              y1={targetNotationY}
-              x2={targetNotationX - 15}
-              y2={targetNotationY - 8}
+              x1={sourceMarkerX}
+              y1={sourcePoint.y}
+              x2={sourceMarkerX - 10}
+              y2={sourcePoint.y - 6}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
             <line
-              x1={targetNotationX}
-              y1={targetNotationY}
-              x2={targetNotationX - 15}
-              y2={targetNotationY + 8}
+              x1={sourceMarkerX}
+              y1={sourcePoint.y}
+              x2={sourceMarkerX - 10}
+              y2={sourcePoint.y}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
             <line
-              x1={targetNotationX}
-              y1={targetNotationY}
-              x2={targetNotationX - 15}
-              y2={targetNotationY}
+              x1={sourceMarkerX}
+              y1={sourcePoint.y}
+              x2={sourceMarkerX - 10}
+              y2={sourcePoint.y + 6}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
           </g>
-        </>
-      );
-    } else if (relation.type === 'N:M') {
-      return (
-        <>
-          {/* Many side at source */}
+        ) : (
           <g>
             <line
-              x1={sourceNotationX}
-              y1={sourceNotationY}
-              x2={sourceNotationX + 15}
-              y2={sourceNotationY - 8}
+              x1={sourceMarkerX}
+              y1={sourcePoint.y}
+              x2={sourceMarkerX - 10}
+              y2={sourcePoint.y - 6}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
             <line
-              x1={sourceNotationX}
-              y1={sourceNotationY}
-              x2={sourceNotationX + 15}
-              y2={sourceNotationY + 8}
+              x1={sourceMarkerX}
+              y1={sourcePoint.y}
+              x2={sourceMarkerX - 10}
+              y2={sourcePoint.y}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
             <line
-              x1={sourceNotationX}
-              y1={sourceNotationY}
-              x2={sourceNotationX + 15}
-              y2={sourceNotationY}
+              x1={sourceMarkerX}
+              y1={sourcePoint.y}
+              x2={sourceMarkerX - 10}
+              y2={sourcePoint.y + 6}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
           </g>
-          {/* Many side at target */}
+        )}
+        
+        {/* End line marker - show | for 1 side, N for many side */}
+        {relation.type === '1:1' ? (
+          <line
+            x1={targetMarkerX}
+            y1={targetPoint.y - 5}
+            x2={targetMarkerX}
+            y2={targetPoint.y + 5}
+            stroke={strokeColor}
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : relation.type === '1:N' ? (
           <g>
             <line
-              x1={targetNotationX}
-              y1={targetNotationY}
-              x2={targetNotationX - 15}
-              y2={targetNotationY - 8}
+              x1={targetMarkerX}
+              y1={targetPoint.y}
+              x2={targetMarkerX + 10}
+              y2={targetPoint.y - 6}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
             <line
-              x1={targetNotationX}
-              y1={targetNotationY}
-              x2={targetNotationX - 15}
-              y2={targetNotationY + 8}
+              x1={targetMarkerX}
+              y1={targetPoint.y}
+              x2={targetMarkerX + 10}
+              y2={targetPoint.y}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
             <line
-              x1={targetNotationX}
-              y1={targetNotationY}
-              x2={targetNotationX - 15}
-              y2={targetNotationY}
+              x1={targetMarkerX}
+              y1={targetPoint.y}
+              x2={targetMarkerX + 10}
+              y2={targetPoint.y + 6}
               stroke={strokeColor}
               strokeWidth="2"
               vectorEffect="non-scaling-stroke"
             />
           </g>
-        </>
-      );
-    }
+        ) : relation.type === 'N:1' ? (
+          <line
+            x1={targetMarkerX}
+            y1={targetPoint.y - 5}
+            x2={targetMarkerX}
+            y2={targetPoint.y + 5}
+            stroke={strokeColor}
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : (
+          <g>
+            <line
+              x1={targetMarkerX}
+              y1={targetPoint.y}
+              x2={targetMarkerX + 10}
+              y2={targetPoint.y - 6}
+              stroke={strokeColor}
+              strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
+            />
+            <line
+              x1={targetMarkerX}
+              y1={targetPoint.y}
+              x2={targetMarkerX + 10}
+              y2={targetPoint.y}
+              stroke={strokeColor}
+              strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
+            />
+            <line
+              x1={targetMarkerX}
+              y1={targetPoint.y}
+              x2={targetMarkerX + 10}
+              y2={targetPoint.y + 6}
+              stroke={strokeColor}
+              strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
+            />
+          </g>
+        )}
+        
+        {/* Relationship type label */}
+        <rect
+          x={labelX - 15}
+          y={labelY - 8}
+          width="30"
+          height="16"
+          fill="white"
+          stroke={strokeColor}
+          strokeWidth="1"
+          rx="3"
+          className="cursor-pointer hover:fill-gray-100"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setTooltipPosition({ x: labelX, y: labelY });
+            setShowTooltip(true);
+            onSelect();
+          }}
+        />
+        <text
+          x={labelX}
+          y={labelY + 4}
+          textAnchor="middle"
+          fontSize="12"
+          fill={strokeColor}
+          fontWeight="bold"
+          className="cursor-pointer pointer-events-none"
+        >
+          {relation.type}
+        </text>
+      </>
+    );
   };
 
   return (
@@ -391,6 +462,7 @@ export const Relation = ({
       className="pointer-events-auto"
     >
       {/* Main path */}
+      {/* Base path */}
       <path
         d={path}
         stroke={strokeColor}
@@ -415,6 +487,29 @@ export const Relation = ({
           onSelect();
         }}
       />
+      
+      {/* Animated highlight overlay on hover */}
+      {isHovered && (
+        <path
+          d={path}
+          stroke="#60A5FA"
+          strokeWidth={strokeWidth }
+          strokeDasharray="12,8"
+          fill="none"
+          className="pointer-events-none"
+          vectorEffect="non-scaling-stroke"
+          style={{
+            filter: 'drop-shadow(0 0 3px #60A5FA)'
+          }}
+        >
+          <animate
+            attributeName="stroke-dashoffset"
+            values="0;20"
+            dur="1s"
+            repeatCount="indefinite"
+          />
+        </path>
+      )}
       
       {/* Relationship notation */}
       {renderNotation()}
@@ -528,14 +623,15 @@ export const Relation = ({
                       <Label htmlFor="relation-type">Type</Label>
                       <Select
                         value={relation.type}
-                        onValueChange={(value: '1:1' | '1:N' | 'N:M') => updateRelation({ type: value })}
+                        onValueChange={(value: '1:1' | '1:N' | 'N:1' | 'N:M') => updateRelation({ type: value })}
                       >
                         <SelectTrigger className="mt-1">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="max-h-60 overflow-y-auto">
                           <SelectItem value="1:1">One-to-One (1:1)</SelectItem>
                           <SelectItem value="1:N">One-to-Many (1:N)</SelectItem>
+                          <SelectItem value="N:1">Many-to-One (N:1)</SelectItem>
                           <SelectItem value="N:M">Many-to-Many (N:M)</SelectItem>
                         </SelectContent>
                       </Select>
@@ -646,12 +742,12 @@ export const Relation = ({
             height="25"
           >
             <div className="flex gap-1">
-              {['1:1', '1:N', 'N:M'].map((type) => (
+              {['1:1', '1:N', 'N:1', 'N:M'].map((type) => (
                 <button
                   key={type}
                   onClick={(e) => {
                     e.stopPropagation();
-                    updateRelation({ type: type as '1:1' | '1:N' | 'N:M' });
+                    updateRelation({ type: type as '1:1' | '1:N' | 'N:1' | 'N:M' });
                   }}
                   className={`px-2 py-1 text-xs rounded ${
                     relation.type === type
