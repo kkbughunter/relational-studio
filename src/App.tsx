@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Home } from "./pages/Home";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { FlowchartIndex } from "./projects/flowchart-designer/pages/FlowchartIndex";
 
 const queryClient = new QueryClient();
 
@@ -18,6 +19,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/designer" element={<Index />} />
+          <Route path="/flowchart" element={<FlowchartIndex />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

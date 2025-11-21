@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Database, Zap, Code, Download, GitBranch } from 'lucide-react';
+import { Database, Zap, Code, Download } from 'lucide-react';
 import { useSchemaStore } from '@/store/useSchemaStore';
 import { DatabaseType } from '@/types/schema';
 import { toast } from 'sonner';
@@ -94,56 +94,34 @@ export const Home = () => {
         </div>
 
         {/* Get Started */}
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-          <Card>
-            <CardHeader className="text-center pb-4">
-              <Database className="h-12 w-12 text-blue-600 mx-auto mb-3" />
-              <CardTitle className="text-lg">Database Schema Designer</CardTitle>
-              <CardDescription className="text-sm">
-                Design database schemas with tables, columns, and relationships
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-0">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Database Type
-                </label>
-                <Select value={selectedDatabase} onValueChange={(value: DatabaseType) => setSelectedDatabase(value)}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="postgresql">PostgreSQL</SelectItem>
-                    <SelectItem value="mysql">MySQL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <Button onClick={handleStartDesigning} className="w-full" size="default">
-                Start Schema Designer
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="text-center pb-4">
-              <GitBranch className="h-12 w-12 text-purple-600 mx-auto mb-3" />
-              <CardTitle className="text-lg">Flowchart Designer</CardTitle>
-              <CardDescription className="text-sm">
-                Create flowcharts with nodes, connections, and visual workflows
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-0">
-              <div className="text-sm text-gray-600 mb-3">
-                Design process flows, decision trees, and workflow diagrams with an intuitive drag-and-drop interface.
-              </div>
-              
-              <Button onClick={() => navigate('/flowchart')} className="w-full" variant="outline" size="default">
-                Start Flowchart Designer
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="max-w-sm mx-auto">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-lg">Start Designing</CardTitle>
+            <CardDescription className="text-sm">
+              Choose your database type and begin creating your schema
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 pt-0">
+            <div>
+              <label className="text-sm font-medium text-gray-700 mb-1 block">
+                Database Type
+              </label>
+              <Select value={selectedDatabase} onValueChange={(value: DatabaseType) => setSelectedDatabase(value)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="postgresql">PostgreSQL</SelectItem>
+                  <SelectItem value="mysql">MySQL</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Button onClick={handleStartDesigning} className="w-full" size="default">
+              Start Designing
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Additional Features */}
         <div className="mt-8 text-center">
