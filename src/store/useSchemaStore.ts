@@ -274,6 +274,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
     set({
       tables: [],
       relations: [],
+      groups: [],
       selectedTableId: null,
       selectedRelationId: null,
       showClearConfirmDialog: false,
@@ -370,14 +371,11 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   },
 
   clearAll: () => {
-    const { tables, relations } = get();
-    const hasContent = tables.length > 0 || relations.length > 0;
+    const { tables, relations, groups } = get();
+    const hasContent = tables.length > 0 || relations.length > 0 || groups.length > 0;
     
     if (hasContent) {
       set({ showClearConfirmDialog: true });
-    } else {
-      const { confirmClearAll } = get();
-      confirmClearAll();
     }
   },
 

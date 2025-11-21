@@ -41,6 +41,7 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
     globalRoutingMode,
     tables,
     relations,
+    groups,
     setSelectedTool,
     setRelationshipType,
     setGlobalRoutingMode,
@@ -50,6 +51,7 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
     canUndo,
     canRedo,
     loadSchema,
+    setGroups,
   } = useSchemaStore();
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -82,8 +84,12 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
       }
 
       loadSchema(data.tables, data.relations);
+      if (data.groups && Array.isArray(data.groups)) {
+        setGroups(data.groups);
+      }
+      const groupCount = data.groups?.length || 0;
       toast.success(
-        `Schema imported! Loaded ${data.tables.length} tables and ${data.relations.length} relations.`
+        `Schema imported! Loaded ${data.tables.length} tables, ${data.relations.length} relations${groupCount > 0 ? `, and ${groupCount} groups` : ''}.`
       );
     } catch (error) {
       console.error('Import error:', error);
@@ -102,6 +108,7 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
       databaseType,
       tables,
       relations,
+      groups,
       exportedAt: new Date().toISOString(),
     };
 
@@ -148,12 +155,7 @@ export const EnhancedToolbar = ({ databaseType, onDatabaseTypeChange }: Enhanced
   };
 
   const handleClear = () => {
-    if (tables.length === 0 && relations.length === 0) {
-      toast.info('Canvas is already empty');
-      return;
-    }
     clearAll();
-    toast.success('Canvas cleared');
   };
 
   const handleToolChange = (tool: 'select' | 'table' | 'group') => {

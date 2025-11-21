@@ -8,9 +8,9 @@ export const ClearConfirmDialog = () => {
     <AlertDialog open={showClearConfirmDialog} onOpenChange={setShowClearConfirmDialog}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Clear All Tables and Relations?</AlertDialogTitle>
+          <AlertDialogTitle>Clear All Schema Elements?</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to clear all tables and relations? This action cannot be undone.
+            Are you sure you want to clear all tables, relations, and groups? This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
