@@ -84,6 +84,7 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
     set((state) => ({
       tables: [...state.tables, table],
       selectedTableId: table.id,
+      selectedTool: 'select',
     }));
   },
 
