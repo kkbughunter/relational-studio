@@ -66,11 +66,20 @@ export class SQLGenerator {
     sql += allDefinitions.map(def => `  ${def}`).join(',\n');
     sql += '\n)';
 
+    let result = sql + ';';
+
     if (this.options.includeComments && table.description) {
-      sql += `;\n${this.generateTableComment(table.name, table.description)}`;
+      result += `\n${this.generateTableComment(table.name, table.description)};`;
     }
 
-    return sql + ';';
+    if (this.options.includeComments) {
+      const columnComments = this.generateColumnComments(table);
+      if (columnComments.length > 0) {
+        result += '\n' + columnComments.join('\n');
+      }
+    }
+
+    return result;
   }
 
   private generateColumnDefinition(column: Column): string {
@@ -214,7 +223,43 @@ export class SQLGenerator {
     }
   }
 
+  private generateColumnComments(table: Table): string[] {
+    const comments: string[] = [];
+    const tableName = this.escapeIdentifier(table.name);
+
+    table.columns.forEach(column => {
+      if (column.comment && column.comment.trim()) {
+        const columnName = this.escapeIdentifier(column.name);
+        const escapedComment = this.escapeString(column.comment);
+
+        switch (this.databaseType) {
+          case 'postgresql':
+            comments.push(`COMMENT ON COLUMN ${tableName}.${columnName} IS ${escapedComment};`);
+            break;
+          case 'mysql':
+            comments.push(`ALTER TABLE ${tableName} MODIFY COLUMN ${columnName} ${this.mapDataType(column.type, column)} COMMENT ${escapedComment};`);
+            break;
+          default:
+            comments.push(`-- Column comment for ${table.name}.${column.name}: ${column.comment}`);
+        }
+      }
+    });
+
+    return comments;
+  }
+
   private mapDataType(type: string, column: Column): string {
+    // Handle ENUM types with options
+    if (type.toUpperCase() === 'ENUM' && column.enumOptions && column.enumOptions.length > 0) {
+      const options = column.enumOptions.map(opt => this.escapeString(opt)).join(', ');
+      return `ENUM(${options})`;
+    }
+
+    if (type.toUpperCase() === 'SET' && column.enumOptions && column.enumOptions.length > 0) {
+      const options = column.enumOptions.map(opt => this.escapeString(opt)).join(', ');
+      return `SET(${options})`;
+    }
+
     // Handle length/precision/scale
     let mappedType = type;
 

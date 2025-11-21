@@ -14,6 +14,8 @@ export interface Column {
   isAutoIncrement: boolean;
   defaultValue?: string;
   description?: string;
+  comment?: string;
+  enumOptions?: string[];
 }
 
 export interface Index {
@@ -110,7 +112,8 @@ export const DATA_TYPES = {
     'UUID',
     'JSON', 'JSONB',
     'BYTEA',
-    'ARRAY'
+    'ARRAY',
+    'ENUM'
   ],
   mysql: [
     'AUTO_INCREMENT',

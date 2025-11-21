@@ -77,7 +77,7 @@ export const Relation = ({
 
   // Calculate column-specific anchor points
   const getColumnAnchorPoint = (table: Table, columnId: string) => {
-    const width = 480;
+    const width = 420;
     const headerHeight = 60;
     const columnHeight = 40;
     
@@ -157,7 +157,7 @@ export const Relation = ({
 
     // Straight line connection with horizontal segments going outward from tables
     const gap = 30;
-    const sourceConnectsFromRight = sourcePoint.x === sourceTable.position.x + 480;
+    const sourceConnectsFromRight = sourcePoint.x === sourceTable.position.x + 420;
     const targetConnectsFromLeft = targetPoint.x === targetTable.position.x;
     
     const startX = sourceConnectsFromRight ? sourcePoint.x + gap : sourcePoint.x - gap;
@@ -250,7 +250,7 @@ export const Relation = ({
     
     // Calculate positions outside tables following same rules as lines but closer
     const gap = 15;
-    const sourceConnectsFromRight = sourcePoint.x === sourceTable.position.x + 480;
+    const sourceConnectsFromRight = sourcePoint.x === sourceTable.position.x + 420;
     const targetConnectsFromLeft = targetPoint.x === targetTable.position.x;
     
     const sourceMarkerX = sourceConnectsFromRight ? sourcePoint.x + gap : sourcePoint.x - gap;

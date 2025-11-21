@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { GripVertical, Plus, X, Settings, Key, Hash, Eye, EyeOff } from 'lucide-react';
+import { GripVertical, Plus, X, Settings, Key, Hash, Eye, EyeOff, MoreHorizontal, Database, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -37,6 +37,7 @@ export const Table = ({
   const [isEditingName, setIsEditingName] = useState(false);
   const [localName, setLocalName] = useState(table.name);
   const [showSettings, setShowSettings] = useState(false);
+  const [columnSettings, setColumnSettings] = useState<string | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,6 +97,9 @@ export const Table = ({
       isUnique: false,
       isNullable: true,
       isAutoIncrement: false,
+      defaultValue: '',
+      comment: '',
+      enumOptions: [],
     };
     onUpdate({
       ...table,
@@ -139,6 +143,29 @@ export const Table = ({
     return null;
   };
 
+  const getKeyType = (column: Column) => {
+    if (column.isPrimary) return 'primary';
+    if (column.isUnique) return 'unique';
+    return 'none';
+  };
+
+  const setKeyType = (columnId: string, keyType: string) => {
+    updateColumn(columnId, {
+      isPrimary: keyType === 'primary',
+      isUnique: keyType === 'unique'
+    });
+  };
+
+  const needsTypeConfiguration = (type: string, dbType: DatabaseType) => {
+    if (dbType === 'postgresql') {
+      return ['ENUM', 'JSON', 'JSONB', 'ARRAY'].includes(type.toUpperCase());
+    }
+    if (dbType === 'mysql') {
+      return ['ENUM', 'SET', 'JSON'].includes(type.toUpperCase());
+    }
+    return false;
+  };
+
   const availableDataTypes = DATA_TYPES[databaseType] || [];
 
   return (
@@ -146,7 +173,7 @@ export const Table = ({
       ref={tableRef}
       id={`table-root-${table.id}`}
       data-table-root="true"
-      className={`absolute bg-white border-2 rounded-lg shadow-lg cursor-move select-none w-[480px] ${
+      className={`absolute bg-white border-2 rounded-lg shadow-lg cursor-move select-none w-[420px] ${
         isSelected ? 'border-primary ring-2 ring-primary/20' : 'border-gray-300'
       }`}
       style={{
@@ -290,8 +317,39 @@ export const Table = ({
               title={connectedColumns.includes(column.id) ? 'Connected column' : 'Click to connect to another column'}
             />
             
-            <div className="flex items-center gap-1 w-6 flex-shrink-0">
-              {getColumnIcon(column)}
+            <div className="w-8 flex-shrink-0">
+              <Select
+                value={getKeyType(column)}
+                onValueChange={(value) => setKeyType(column.id, value)}
+              >
+                <SelectTrigger className="h-6 w-8 p-0 border-none bg-transparent hover:bg-gray-100">
+                  <SelectValue>
+                    {column.isPrimary && <Key className="h-3 w-3 text-yellow-500 mx-auto" />}
+                    {column.isUnique && !column.isPrimary && <Hash className="h-3 w-3 text-green-500 mx-auto" />}
+                    {!column.isPrimary && !column.isUnique && <Circle className="h-3 w-3 text-gray-400 mx-auto" />}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <div className="flex items-center gap-2">
+                      <Circle className="h-3 w-3 text-gray-400" />
+                      <span>None</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="primary">
+                    <div className="flex items-center gap-2">
+                      <Key className="h-3 w-3 text-yellow-500" />
+                      <span>Primary Key</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="unique">
+                    <div className="flex items-center gap-2">
+                      <Hash className="h-3 w-3 text-green-500" />
+                      <span>Unique Key</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="w-32 flex-shrink-0">
@@ -323,35 +381,6 @@ export const Table = ({
             </div>
 
             <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  updateColumn(column.id, { isPrimary: !column.isPrimary });
-                }}
-                className={`h-6 px-2 text-[10px] ${
-                  column.isPrimary ? 'bg-yellow-500 text-white hover:bg-yellow-600' : 'hover:bg-gray-100'
-                }`}
-                title="Primary Key"
-              >
-                PK
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  updateColumn(column.id, { isUnique: !column.isUnique });
-                }}
-                className={`h-6 px-2 text-[10px] ${
-                  column.isUnique ? 'bg-green-500 text-white hover:bg-green-600' : 'hover:bg-gray-100'
-                }`}
-                title="Unique"
-              >
-                UQ
-              </Button>
               
               <Button
                 variant="ghost"
@@ -360,13 +389,78 @@ export const Table = ({
                   e.stopPropagation();
                   updateColumn(column.id, { isNullable: !column.isNullable });
                 }}
-                className={`h-6 px-1 text-[10px] ${
+                className={`h-6 px-2 text-[10px] ${
                   !column.isNullable ? 'bg-red-500 text-white hover:bg-red-600' : 'hover:bg-gray-100'
                 }`}
                 title="Not Null"
               >
-                {column.isNullable ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                NN
               </Button>
+              
+              <Popover open={columnSettings === column.id} onOpenChange={(open) => setColumnSettings(open ? column.id : null)}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-6 w-6 p-0 hover:bg-gray-100"
+                    title="Column Settings"
+                  >
+                    <MoreHorizontal className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" onClick={(e) => e.stopPropagation()}>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor={`default-${column.id}`}>Default Value</Label>
+                      <Input
+                        id={`default-${column.id}`}
+                        value={column.defaultValue || ''}
+                        onChange={(e) => updateColumn(column.id, { defaultValue: e.target.value })}
+                        placeholder="Default value..."
+                        className="mt-1"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor={`comment-${column.id}`}>Comment</Label>
+                      <Textarea
+                        id={`comment-${column.id}`}
+                        value={column.comment || ''}
+                        onChange={(e) => updateColumn(column.id, { comment: e.target.value })}
+                        placeholder="Column comment..."
+                        className="mt-1"
+                        rows={2}
+                      />
+                    </div>
+                    
+                    {needsTypeConfiguration(column.type, databaseType) && (
+                      <div>
+                        <Label htmlFor={`type-config-${column.id}`}>
+                          {column.type.toUpperCase() === 'ENUM' || column.type.toUpperCase() === 'SET' ? 'Options' :
+                           column.type.toUpperCase() === 'ARRAY' ? 'Array Element Type' :
+                           'Configuration'}
+                        </Label>
+                        <Input
+                          id={`type-config-${column.id}`}
+                          value={column.enumOptions?.join(', ') || ''}
+                          onChange={(e) => updateColumn(column.id, { 
+                            enumOptions: e.target.value.split(',').map(opt => opt.trim()).filter(opt => opt) 
+                          })}
+                          placeholder={
+                            column.type.toUpperCase() === 'ENUM' || column.type.toUpperCase() === 'SET' ? 
+                            'Enter comma-separated values: value1, value2, value3' :
+                            column.type.toUpperCase() === 'ARRAY' ? 
+                            'Enter element type: INTEGER, TEXT, etc.' :
+                            'Enter configuration data'
+                          }
+                          className="mt-1"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <Button

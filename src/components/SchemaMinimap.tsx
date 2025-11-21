@@ -34,7 +34,7 @@ export const SchemaMinimap = () => {
       const centerY = rect.height / 2;
       
       setCanvasOffset({
-        x: centerX - table.position.x - 140,
+        x: centerX - table.position.x - 210,
         y: centerY - table.position.y - 60
       });
     }
@@ -74,9 +74,9 @@ export const SchemaMinimap = () => {
             return (
               <line
                 key={relation.id}
-                x1={sourceTable.position.x + 140}
+                x1={sourceTable.position.x + 210}
                 y1={sourceTable.position.y + 60}
-                x2={targetTable.position.x + 140}
+                x2={targetTable.position.x + 210}
                 y2={targetTable.position.y + 60}
                 stroke="#9CA3AF"
                 strokeWidth="1"
@@ -91,7 +91,7 @@ export const SchemaMinimap = () => {
               <rect
                 x={table.position.x}
                 y={table.position.y}
-                width="280"
+                width="420"
                 height="120"
                 fill={table.id === selectedTableId ? '#3B82F6' : table.color || '#6B7280'}
                 stroke={table.id === selectedTableId ? '#1D4ED8' : '#9CA3AF'}
@@ -103,7 +103,7 @@ export const SchemaMinimap = () => {
                 <title>{table.name} ({table.columns.length} columns)</title>
               </rect>
               <text
-                x={table.position.x + 140}
+                x={table.position.x + 210}
                 y={table.position.y + 60}
                 textAnchor="middle"
                 dominantBaseline="middle"
