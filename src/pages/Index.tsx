@@ -1,14 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { EnhancedToolbar } from '@/components/EnhancedToolbar';
 import { EnhancedCanvas } from '@/components/EnhancedCanvas';
 import { Sidebar } from '@/components/Sidebar';
+import { ClearConfirmDialog } from '@/components/ClearConfirmDialog';
+import { Button } from '@/components/ui/button';
 import { useSchemaStore } from '@/store/useSchemaStore';
-import { DatabaseType } from '@/types/schema';
 import { toast } from 'sonner';
+import { Home } from 'lucide-react';
 
 const Index = () => {
-  const [databaseType, setDatabaseType] = useState<DatabaseType>('postgresql');
-  const { tables, relations, undo, redo } = useSchemaStore();
+  const navigate = useNavigate();
+  const { tables, relations, databaseType, setDatabaseType, undo, redo } = useSchemaStore();
+
+  const handleGoHome = () => {
+    const hasContent = tables.length > 0 || relations.length > 0;
+    if (hasContent) {
+      if (window.confirm('You have unsaved work. Going back to home will automatically export your schema. Continue?')) {
+        navigate('/');
+      }
+    } else {
+      navigate('/');
+    }
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -93,7 +107,16 @@ const Index = () => {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleGoHome}
+              className="flex items-center gap-2"
+            >
+              <Home className="h-4 w-4" />
+              Home
+            </Button>
             <h3 className="text-2xl font-bold text-gray-900">Relational Studio</h3>
           </div>
         </div>
@@ -112,6 +135,9 @@ const Index = () => {
         <Sidebar />
         <EnhancedCanvas databaseType={databaseType} />
       </div>
+      
+      {/* Confirmation Dialog */}
+      <ClearConfirmDialog />
     </div>
   );
 };

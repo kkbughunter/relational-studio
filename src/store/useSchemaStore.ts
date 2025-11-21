@@ -8,6 +8,7 @@ interface SchemaState {
   // Schema data
   tables: Table[];
   relations: Relation[];
+  databaseType: DatabaseType;
   
   // UI state
   selectedTableId: string | null;
@@ -15,6 +16,7 @@ interface SchemaState {
   selectedTool: 'select' | 'table';
   relationshipType: '1:1' | '1:N' | 'N:M';
   globalRoutingMode: 'auto' | 'manual';
+  showClearConfirmDialog: boolean;
   
   // Canvas state
   canvasOffset: { x: number; y: number };
@@ -32,6 +34,7 @@ interface SchemaState {
   setCurrentProject: (project: Project | null) => void;
   setTables: (tables: Table[]) => void;
   setRelations: (relations: Relation[]) => void;
+  setDatabaseType: (type: DatabaseType) => void;
   addTable: (table: Table) => void;
   updateTable: (table: Table) => void;
   deleteTable: (id: string) => void;
@@ -43,6 +46,8 @@ interface SchemaState {
   setSelectedTool: (tool: 'select' | 'table') => void;
   setRelationshipType: (type: '1:1' | '1:N' | 'N:M') => void;
   setGlobalRoutingMode: (mode: 'auto' | 'manual') => void;
+  setShowClearConfirmDialog: (show: boolean) => void;
+  confirmClearAll: () => void;
   setCanvasOffset: (offset: { x: number; y: number }) => void;
   setCanvasScale: (scale: number) => void;
   navigateToTable: (tableId: string) => void;
@@ -61,11 +66,13 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   currentProject: null,
   tables: [],
   relations: [],
+  databaseType: 'postgresql',
   selectedTableId: null,
   selectedRelationId: null,
   selectedTool: 'select',
   relationshipType: '1:N',
   globalRoutingMode: 'auto',
+  showClearConfirmDialog: false,
   canvasOffset: { x: 0, y: 0 },
   canvasScale: 1,
   history: [],
@@ -77,6 +84,8 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   setTables: (tables) => set({ tables }),
 
   setRelations: (relations) => set({ relations }),
+
+  setDatabaseType: (type) => set({ databaseType: type }),
 
   addTable: (table) => {
     const { pushHistory } = get();
@@ -143,6 +152,20 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   setRelationshipType: (type) => set({ relationshipType: type }),
 
   setGlobalRoutingMode: (mode) => set({ globalRoutingMode: mode }),
+
+  setShowClearConfirmDialog: (show) => set({ showClearConfirmDialog: show }),
+
+  confirmClearAll: () => {
+    const { pushHistory } = get();
+    pushHistory();
+    set({
+      tables: [],
+      relations: [],
+      selectedTableId: null,
+      selectedRelationId: null,
+      showClearConfirmDialog: false,
+    });
+  },
 
   setCanvasOffset: (offset) => set({ canvasOffset: offset }),
 
@@ -234,14 +257,15 @@ export const useSchemaStore = create<SchemaState>((set, get) => ({
   },
 
   clearAll: () => {
-    const { pushHistory } = get();
-    pushHistory();
-    set({
-      tables: [],
-      relations: [],
-      selectedTableId: null,
-      selectedRelationId: null,
-    });
+    const { tables, relations } = get();
+    const hasContent = tables.length > 0 || relations.length > 0;
+    
+    if (hasContent) {
+      set({ showClearConfirmDialog: true });
+    } else {
+      const { confirmClearAll } = get();
+      confirmClearAll();
+    }
   },
 
   loadSchema: (tables, relations) => {
